@@ -165,4 +165,20 @@ public class WorkloadController {
                 "totalCount", databaseService.getOrderCount()
         ));
     }
+
+    // --- DB Pool Control ---
+    @GetMapping("/db/pool-size")
+    public ResponseEntity<?> getPoolSize() {
+        return ResponseEntity.ok(Map.of("maxPoolSize", databaseService.getMaxPoolSize()));
+    }
+
+    @PostMapping("/db/pool-size")
+    public ResponseEntity<?> setPoolSize(@RequestBody Map<String, Integer> request) {
+        Integer maxPoolSize = request.get("maxPoolSize");
+        if (maxPoolSize == null || maxPoolSize < 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid maxPoolSize"));
+        }
+        databaseService.updateMaxPoolSize(maxPoolSize);
+        return ResponseEntity.ok(Map.of("status", "updated", "maxPoolSize", maxPoolSize));
+    }
 }

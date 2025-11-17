@@ -127,4 +127,68 @@ public class LoadGeneratorService {
         activeTasks.clear();
         runningMap.clear();
     }
+
+    public void executeMemoryWorkload(int sizeInMb, int durationInMs) {
+        log.info("Triggering memory workload: {} MB for {} ms", sizeInMb, durationInMs);
+        new Thread(() -> {
+            try {
+                List<byte[]> memoryHog = new CopyOnWriteArrayList<>();
+                long sizeInBytes = (long) sizeInMb * 1024 * 1024;
+                int chunkSize = 1 * 1024 * 1024; // 1MB chunks
+                long allocatedBytes = 0;
+
+                log.info("Allocating ~{} MB of memory...", sizeInMb);
+                while (allocatedBytes < sizeInBytes) {
+                    memoryHog.add(new byte[chunkSize]);
+                    allocatedBytes += chunkSize;
+                }
+                log.info("Successfully allocated ~{} MB of memory.", sizeInMb);
+
+                // Hold the memory for the specified duration
+                Thread.sleep(durationInMs);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Memory workload thread interrupted.");
+            } catch (OutOfMemoryError e) {
+                log.error("OutOfMemoryError during memory workload! Releasing allocated memory.", e);
+            } finally {
+                // The memory will be released automatically when the thread finishes
+                // and 'memoryHog' goes out of scope, allowing the GC to reclaim it.
+                log.info("Releasing ~{} MB of memory.", sizeInMb);
+            }
+        }).start();
+    }
+
+    public void executeCpuAndMemoryWorkload(int cpuPercent, int sizeInMb, int durationInMs) {
+        log.info("Triggering CPU+Memory workload: {}% CPU, {} MB for {} ms", cpuPercent, sizeInMb, durationInMs);
+        new Thread(() -> {
+            List<byte[]> memoryHog = new CopyOnWriteArrayList<>();
+            try {
+                // 1. Allocate Memory
+                long sizeInBytes = (long) sizeInMb * 1024 * 1024;
+                int chunkSize = 1 * 1024 * 1024; // 1MB chunks
+                long allocatedBytes = 0;
+                log.info("Allocating ~{} MB of memory for combined workload...", sizeInMb);
+                while (allocatedBytes < sizeInBytes) {
+                    memoryHog.add(new byte[chunkSize]);
+                    allocatedBytes += chunkSize;
+                }
+                log.info("Successfully allocated ~{} MB of memory.", sizeInMb);
+
+                // 2. Generate CPU load while holding memory
+                Instant end = Instant.now().plusMillis(durationInMs);
+                while (Instant.now().isBefore(end)) {
+                    busyWork(cpuPercent);
+                }
+
+            } catch (OutOfMemoryError e) {
+                log.error("OutOfMemoryError during combined workload!", e);
+            } finally {
+                // 3. Release memory
+                log.info("Releasing ~{} MB of memory from combined workload.", sizeInMb);
+                memoryHog.clear();
+            }
+        }).start();
+    }
 }

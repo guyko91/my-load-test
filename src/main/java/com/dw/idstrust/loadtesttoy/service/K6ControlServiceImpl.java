@@ -79,6 +79,8 @@ public class K6ControlServiceImpl implements K6ControlService {
             command.add(dockerCommand);
             command.add("run");
             command.add("--rm");
+            command.add("--user");
+            command.add("root");
             command.add("--network");
             command.add(networkName);
             command.add("-v");
@@ -126,6 +128,8 @@ public class K6ControlServiceImpl implements K6ControlService {
             command.add(dockerCommand);
             command.add("run");
             command.add("--rm");
+            command.add("--user");
+            command.add("root");
             command.add("--network");
             command.add(networkName);
             command.add("-v");

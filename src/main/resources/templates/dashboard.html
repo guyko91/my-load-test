@@ -345,6 +345,7 @@
                     <option value="db">DB Query Only</option>
                     <option value="mixed">Mixed (CPU 60% + IO)</option>
                     <option value="high_burst">High Burst (CPU 80% + DB)</option>
+                    <option value="memory_hog">Memory Hog (256MB)</option>
                 </select>
             </div>
 
@@ -391,6 +392,22 @@
             </div>
 
             <button id="refresh-db-btn" class="btn btn-success">🔄 Refresh DB Status</button>
+        </div>
+
+        <!-- DB Pool Control Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🔧 DB Pool Control</h2>
+            </div>
+            <div class="stat-box">
+                <h3>Current Max Pool Size</h3>
+                <div class="value" id="pool-size-value">-</div>
+            </div>
+            <div class="form-group">
+                <label>Set New Max Pool Size</label>
+                <input type="number" id="pool-size-input" value="20" min="1" max="100">
+            </div>
+            <button id="set-pool-size-btn" class="btn btn-primary">Apply Pool Size</button>
         </div>
 
         <!-- Application Status Card -->
@@ -443,6 +460,10 @@
             <div class="quick-action-btn" onclick="quickTest('high_burst', 30, 3, 50)">
                 <div class="title">⚡ High Burst</div>
                 <div class="desc">30 RPS, 3분, 고부하</div>
+            </div>
+            <div class="quick-action-btn" onclick="quickCpuMemoryTest()">
+                <div class="title">🧠 CPU + Memory Test</div>
+                <div class="desc">CPU 50%, 256MB, 1분</div>
             </div>
         </div>
     </div>

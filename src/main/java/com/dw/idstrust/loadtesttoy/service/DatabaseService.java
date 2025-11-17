@@ -2,6 +2,7 @@ package com.dw.idstrust.loadtesttoy.service;
 
 import com.dw.idstrust.loadtesttoy.entity.Order;
 import com.dw.idstrust.loadtesttoy.repository.OrderRepository;
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,6 +25,7 @@ public class DatabaseService {
     private static final Logger log = LoggerFactory.getLogger(DatabaseService.class);
 
     private final OrderRepository orderRepository;
+    private final DataSource dataSource;
     private final Random random = new Random();
 
     private static final String[] CUSTOMER_NAMES = {
@@ -49,8 +52,9 @@ public class DatabaseService {
             "인천광역시 연수구 센트럴로 654"
     };
 
-    public DatabaseService(OrderRepository orderRepository) {
+    public DatabaseService(OrderRepository orderRepository, DataSource dataSource) {
         this.orderRepository = orderRepository;
+        this.dataSource = dataSource;
     }
 
     @PostConstruct
@@ -134,5 +138,22 @@ public class DatabaseService {
 
     public long getOrderCount() {
         return orderRepository.count();
+    }
+
+    // --- Hikari Pool Control ---
+    public void updateMaxPoolSize(int size) {
+        if (dataSource instanceof HikariDataSource) {
+            log.info("Updating Hikari max pool size to: {}", size);
+            ((HikariDataSource) dataSource).setMaximumPoolSize(size);
+        } else {
+            log.warn("Datasource is not a HikariDataSource, cannot update max pool size.");
+        }
+    }
+
+    public int getMaxPoolSize() {
+        if (dataSource instanceof HikariDataSource) {
+            return ((HikariDataSource) dataSource).getMaximumPoolSize();
+        }
+        return -1; // Not a Hikari pool
     }
 }

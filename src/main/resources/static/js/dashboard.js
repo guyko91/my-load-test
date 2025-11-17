@@ -41,6 +41,9 @@ const k6StatusText = document.getElementById('k6-status-text');
 const appStatusBadge = document.getElementById('app-status-badge');
 const workloadStatusText = document.getElementById('workload-status-text');
 const orderCountEl = document.getElementById('order-count');
+const poolSizeValueEl = document.getElementById('pool-size-value');
+const poolSizeInput = document.getElementById('pool-size-input');
+const setPoolSizeBtn = document.getElementById('set-pool-size-btn');
 
 const k6ResultDiv = document.getElementById('k6-result');
 const k6ResultInfo = document.getElementById('k6-result-info');
@@ -55,8 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
     stopAllBtn.addEventListener('click', stopAllWorkloads);
     refreshDbBtn.addEventListener('click', () => {
         refreshDatabaseStatus();
+        refreshPoolSize();
         showToast('Database status refreshed!', 'info');
     });
+    setPoolSizeBtn.addEventListener('click', setPoolSize);
 });
 
 // Auto Refresh (every 3 seconds)
@@ -77,7 +82,8 @@ async function refreshAllStatus() {
     await Promise.all([
         refreshK6Status(),
         refreshAppStatus(),
-        refreshDatabaseStatus()
+        refreshDatabaseStatus(),
+        refreshPoolSize()
     ]);
 }
 
@@ -152,6 +158,52 @@ async function refreshDatabaseStatus() {
         }
     } catch (error) {
         console.error('Failed to refresh database status:', error);
+    }
+}
+
+// DB Pool Size
+async function refreshPoolSize() {
+    try {
+        const res = await fetch('/api/workload/db/pool-size');
+        const data = await res.json();
+        if (data.maxPoolSize !== undefined && data.maxPoolSize > 0) {
+            poolSizeValueEl.textContent = data.maxPoolSize;
+            poolSizeInput.value = data.maxPoolSize;
+        } else {
+            poolSizeValueEl.textContent = 'N/A';
+        }
+    } catch (error) {
+        console.error('Failed to refresh pool size:', error);
+        poolSizeValueEl.textContent = 'Error';
+    }
+}
+
+async function setPoolSize() {
+    const newSize = parseInt(poolSizeInput.value);
+    if (isNaN(newSize) || newSize < 1) {
+        showToast('Please enter a valid pool size.', 'error');
+        return;
+    }
+
+    setPoolSizeBtn.disabled = true;
+    try {
+        const res = await fetch('/api/workload/db/pool-size', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ maxPoolSize: newSize })
+        });
+
+        if (res.ok) {
+            showToast(`Max pool size set to ${newSize}`, 'success');
+            await refreshPoolSize();
+        } else {
+            showToast('Failed to set pool size.', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to set pool size:', error);
+        showToast('An error occurred while setting pool size.', 'error');
+    } finally {
+        setPoolSizeBtn.disabled = false;
     }
 }
 
@@ -321,5 +373,34 @@ async function longScenario(scenarioName) {
     } catch (error) {
         console.error('Failed to start long scenario:', error);
         showToast('An error occurred while starting the long-running test.', 'error');
+    }
+}
+
+// CPU + Memory Quick Test
+async function quickCpuMemoryTest() {
+    if (!confirm(`Start CPU + Memory Test?\n\nCPU: 50%\nMemory: 256MB\nDuration: 1 minute`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/workload/cpu-memory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cpuPercent: 50,
+                sizeMb: 256,
+                durationMs: 60000
+            })
+        });
+
+        if (res.ok) {
+            showToast('CPU + Memory test started!', 'success');
+            await refreshAppStatus();
+        } else {
+            showToast('Failed to start CPU + Memory test.', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to start CPU + Memory test:', error);
+        showToast('An error occurred while starting the CPU + Memory test.', 'error');
     }
 }

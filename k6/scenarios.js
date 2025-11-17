@@ -51,6 +51,18 @@ export const options = {
       exec: 'mediumBurstScenario',
       startTime: '10m',  // 10분 후 시작
     },
+
+    // Scenario 5: Memory Hog (메모리 부하)
+    memory_hog: {
+      executor: 'constant-arrival-rate',
+      rate: 2, // 2 RPS
+      timeUnit: '1s',
+      duration: '5m', // 5분 동안
+      preAllocatedVUs: 5,
+      maxVUs: 10,
+      exec: 'memoryHogScenario',
+      startTime: '15m', // 15분 후 시작
+    },
   },
 
   thresholds: {
@@ -148,4 +160,21 @@ export function mediumBurstScenario() {
   });
 
   sleep(0.8);
+}
+
+// Scenario 5: Memory Hog
+export function memoryHogScenario() {
+  const memRes = http.post(`${BASE_URL}/api/workload/memory`, JSON.stringify({
+    sizeMb: 256, // 256MB 할당
+    durationMs: 15000 // 15초 동안 유지
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  check(memRes, {
+    'memory hog - status is 200': (r) => r.status === 200,
+  });
+
+  // 다른 요청과 겹치지 않도록 충분히 sleep
+  sleep(10);
 }
