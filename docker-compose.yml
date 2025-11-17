@@ -22,33 +22,33 @@ services:
     networks:
       - load-test-network
 
-  # Spring Boot Application (주석처리 - 로컬 IntelliJ에서 구동)
-  # app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     platforms:
-  #       - linux/amd64
-  #       - linux/arm64
-  #   container_name: load-test-app
-  #   ports:
-  #     - "28080:28080"
-  #   environment:
-  #     - SPRING_PROFILES_ACTIVE=real
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./k6:/scripts
-  #   depends_on:
-  #     oracle-db:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:28080/api/load/status"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
-  #   networks:
-  #     - load-test-network
+  # Spring Boot Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    container_name: load-test-app
+    ports:
+      - "28080:28080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=real
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./k6:/scripts
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:28080/api/load/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - load-test-network
 
   # K6 Load Generator (수동 실행용 - 대시보드에서 제어)
   k6:
