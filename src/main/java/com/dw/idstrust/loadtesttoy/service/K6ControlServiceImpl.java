@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * K6 Control Service 구현체
- * docker compose run으로 K6 컨테이너 실행
+ * 'docker run'을 사용하여 K6 컨테이너를 직접 실행
  */
 @Service
 public class K6ControlServiceImpl implements K6ControlService {
@@ -26,58 +27,62 @@ public class K6ControlServiceImpl implements K6ControlService {
     private final Map<String, String> lastTestResult = new ConcurrentHashMap<>();
     private final String dockerCommand;
     private final String baseUrl;
+    private final String hostProjectPath;
+    private final String networkName;
 
-    public K6ControlServiceImpl(@Value("${k6.base-url:http://host.docker.internal:28080}") String baseUrl) {
+    public K6ControlServiceImpl(@Value("${k6.base-url:http://app:28080}") String baseUrl,
+                                @Value("${k6.docker.network:load-test-toy_load-test-network}") String networkName) {
         this.baseUrl = baseUrl;
+        this.networkName = networkName;
         this.dockerCommand = findDockerCommand();
-        log.info("K6ControlService initialized. Docker: {}, Base URL: {}", dockerCommand, baseUrl);
+        
+        // HOST_PROJECT_PATH는 docker-compose.yml에서 주입됩니다.
+        String projectPath = System.getenv("HOST_PROJECT_PATH");
+        if (projectPath == null || projectPath.isBlank()) {
+            log.warn("HOST_PROJECT_PATH environment variable is not set. Using '.' as default. This may cause issues with volume mounts.");
+            this.hostProjectPath = ".";
+        } else {
+            this.hostProjectPath = projectPath;
+        }
+        
+        log.info("K6ControlService initialized. Docker: {}, Base URL: {}, Host Project Path: {}, Network: {}", 
+                 dockerCommand, baseUrl, hostProjectPath, networkName);
     }
 
     private String findDockerCommand() {
-        // 일반적인 Docker 설치 경로들
-        String[] possiblePaths = {
-            "/usr/local/bin/docker",
-            "/usr/bin/docker",
-            "/opt/homebrew/bin/docker",
-            "docker" // PATH에서 찾기
-        };
-
+        String[] possiblePaths = {"/usr/local/bin/docker", "/usr/bin/docker", "/opt/homebrew/bin/docker", "docker"};
         for (String path : possiblePaths) {
             try {
                 Process p = new ProcessBuilder(path, "--version").start();
-                int exitCode = p.waitFor();
-                if (exitCode == 0) {
-                    return path;
-                }
+                if (p.waitFor() == 0) return path;
             } catch (Exception e) {
-                // 다음 경로 시도
+                // Ignore and try next path
             }
         }
-
-        // 기본값
-        return "docker";
+        return "docker"; // Default fallback
     }
 
     @Override
     public void startK6Test(String scenario, int rps, int durationMinutes, int vus) {
-        if (isRunning.get()) {
+        if (isRunning.getAndSet(true)) {
             log.warn("K6 test already running, skipping new request");
             return;
         }
 
-        try {
-            isRunning.set(true);
-            lastTestResult.clear();
-            lastTestResult.put("status", "running");
-            lastTestResult.put("scenario", scenario);
-            lastTestResult.put("startTime", String.valueOf(System.currentTimeMillis()));
+        lastTestResult.clear();
+        lastTestResult.put("status", "running");
+        lastTestResult.put("scenario", scenario);
+        lastTestResult.put("startTime", String.valueOf(System.currentTimeMillis()));
 
-            // Docker Compose 환경에서 K6 컨테이너 실행
+        try {
             List<String> command = new ArrayList<>();
             command.add(dockerCommand);
-            command.add("compose");
             command.add("run");
             command.add("--rm");
+            command.add("--network");
+            command.add(networkName);
+            command.add("-v");
+            command.add(new File(hostProjectPath, "k6").getAbsolutePath() + ":/scripts");
             command.add("-e");
             command.add("SCENARIO=" + scenario);
             command.add("-e");
@@ -88,45 +93,12 @@ public class K6ControlServiceImpl implements K6ControlService {
             command.add("VUS=" + vus);
             command.add("-e");
             command.add("BASE_URL=" + baseUrl);
-            command.add("k6");
+            command.add("grafana/k6:latest");
             command.add("run");
             command.add("/scripts/dynamic.js");
 
-            log.info("Starting K6 test: scenario={}, rps={}, duration={}m, vus={}",
-                    scenario, rps, durationMinutes, vus);
-
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.redirectErrorStream(true);
-            currentK6Process = pb.start();
-
-            // Read output in background thread
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(currentK6Process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log.info("K6: {}", line);
-                    }
-                } catch (Exception e) {
-                    log.error("Error reading K6 output", e);
-                }
-            }).start();
-
-            // Wait for process completion in background
-            new Thread(() -> {
-                try {
-                    int exitCode = currentK6Process.waitFor();
-                    lastTestResult.put("status", exitCode == 0 ? "completed" : "failed");
-                    lastTestResult.put("exitCode", String.valueOf(exitCode));
-                    lastTestResult.put("endTime", String.valueOf(System.currentTimeMillis()));
-                    log.info("K6 test finished with exit code: {}", exitCode);
-                } catch (InterruptedException e) {
-                    lastTestResult.put("status", "interrupted");
-                    Thread.currentThread().interrupt();
-                } finally {
-                    isRunning.set(false);
-                }
-            }).start();
+            log.info("Starting K6 test with command: {}", String.join(" ", command));
+            executeK6Process(command);
 
         } catch (Exception e) {
             log.error("Failed to start K6 test", e);
@@ -138,67 +110,36 @@ public class K6ControlServiceImpl implements K6ControlService {
 
     @Override
     public void startLongScenario(String scenarioName) {
-        if (isRunning.get()) {
+        if (isRunning.getAndSet(true)) {
             log.warn("K6 test already running, skipping long scenario request");
             return;
         }
 
-        try {
-            isRunning.set(true);
-            lastTestResult.clear();
-            lastTestResult.put("status", "running");
-            lastTestResult.put("scenario", scenarioName);
-            lastTestResult.put("type", "long");
-            lastTestResult.put("startTime", String.valueOf(System.currentTimeMillis()));
+        lastTestResult.clear();
+        lastTestResult.put("status", "running");
+        lastTestResult.put("scenario", scenarioName);
+        lastTestResult.put("type", "long");
+        lastTestResult.put("startTime", String.valueOf(System.currentTimeMillis()));
 
-            // Docker Compose 환경에서 K6 컨테이너 실행
+        try {
             List<String> command = new ArrayList<>();
             command.add(dockerCommand);
-            command.add("compose");
             command.add("run");
             command.add("--rm");
+            command.add("--network");
+            command.add(networkName);
+            command.add("-v");
+            command.add(new File(hostProjectPath, "k6").getAbsolutePath() + ":/scripts");
             command.add("-e");
             command.add("SCENARIO=" + scenarioName);
             command.add("-e");
             command.add("BASE_URL=" + baseUrl);
-            command.add("k6");
+            command.add("grafana/k6:latest");
             command.add("run");
             command.add("/scripts/long-scenarios.js");
 
-            log.info("Starting K6 long scenario: {}", scenarioName);
-
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.redirectErrorStream(true);
-            currentK6Process = pb.start();
-
-            // Read output in background thread
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(currentK6Process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log.info("K6: {}", line);
-                    }
-                } catch (Exception e) {
-                    log.error("Error reading K6 output", e);
-                }
-            }).start();
-
-            // Wait for process completion in background
-            new Thread(() -> {
-                try {
-                    int exitCode = currentK6Process.waitFor();
-                    lastTestResult.put("status", exitCode == 0 ? "completed" : "failed");
-                    lastTestResult.put("exitCode", String.valueOf(exitCode));
-                    lastTestResult.put("endTime", String.valueOf(System.currentTimeMillis()));
-                    log.info("K6 long scenario finished with exit code: {}", exitCode);
-                } catch (InterruptedException e) {
-                    lastTestResult.put("status", "interrupted");
-                    Thread.currentThread().interrupt();
-                } finally {
-                    isRunning.set(false);
-                }
-            }).start();
+            log.info("Starting K6 long scenario with command: {}", String.join(" ", command));
+            executeK6Process(command);
 
         } catch (Exception e) {
             log.error("Failed to start K6 long scenario", e);
@@ -208,60 +149,71 @@ public class K6ControlServiceImpl implements K6ControlService {
         }
     }
 
-    @Override
-    public void stopK6Test() {
-        log.info("Stopping K6 test");
+    private void executeK6Process(List<String> command) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        currentK6Process = pb.start();
 
-        // 1. 실행 중인 K6 컨테이너 찾아서 중지
-        try {
-            List<String> findCommand = new ArrayList<>();
-            findCommand.add(dockerCommand);
-            findCommand.add("ps");
-            findCommand.add("--filter");
-            findCommand.add("ancestor=grafana/k6:latest");
-            findCommand.add("--format");
-            findCommand.add("{{.ID}}");
-
-            ProcessBuilder pb = new ProcessBuilder(findCommand);
-            Process p = pb.start();
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            String containerId;
-            while ((containerId = reader.readLine()) != null) {
-                if (!containerId.trim().isEmpty()) {
-                    log.info("Stopping K6 container: {}", containerId);
-                    List<String> stopCommand = new ArrayList<>();
-                    stopCommand.add(dockerCommand);
-                    stopCommand.add("stop");
-                    stopCommand.add(containerId);
-
-                    ProcessBuilder stopPb = new ProcessBuilder(stopCommand);
-                    Process stopProcess = stopPb.start();
-                    stopProcess.waitFor();
-                    log.info("K6 container {} stopped", containerId);
+        // Asynchronously read process output
+        new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(currentK6Process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.info("K6: {}", line);
+                }
+            } catch (Exception e) {
+                if (!e.getMessage().contains("Stream closed")) {
+                    log.error("Error reading K6 output", e);
                 }
             }
-            reader.close();
-            p.waitFor();
+        }).start();
 
-        } catch (Exception e) {
-            log.error("Error stopping K6 container", e);
-        }
-
-        // 2. Java 프로세스도 종료
-        if (currentK6Process != null && currentK6Process.isAlive()) {
-            currentK6Process.destroy();
+        // Asynchronously wait for process completion
+        new Thread(() -> {
             try {
-                currentK6Process.waitFor();
+                int exitCode = currentK6Process.waitFor();
+                lastTestResult.put("status", exitCode == 0 ? "completed" : "failed");
+                lastTestResult.put("exitCode", String.valueOf(exitCode));
+                log.info("K6 test finished with exit code: {}", exitCode);
             } catch (InterruptedException e) {
-                currentK6Process.destroyForcibly();
+                lastTestResult.put("status", "interrupted");
                 Thread.currentThread().interrupt();
+            } finally {
+                lastTestResult.put("endTime", String.valueOf(System.currentTimeMillis()));
+                isRunning.set(false);
             }
+        }).start();
+    }
+
+    @Override
+    public void stopK6Test() {
+        log.info("Attempting to stop K6 test...");
+        // Find and stop the container using its ancestor image
+        try {
+            ProcessBuilder ps = new ProcessBuilder(dockerCommand, "ps", "-q", "--filter", "ancestor=grafana/k6:latest");
+            Process p = ps.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String containerId;
+                while ((containerId = reader.readLine()) != null) {
+                    if (!containerId.isBlank()) {
+                        log.info("Found running K6 container: {}. Stopping it...", containerId);
+                        new ProcessBuilder(dockerCommand, "stop", containerId).start().waitFor();
+                        log.info("K6 container {} stopped.", containerId);
+                    }
+                }
+            }
+            p.waitFor();
+        } catch (Exception e) {
+            log.error("Error while stopping K6 Docker container", e);
         }
 
-        lastTestResult.put("status", "stopped");
+        if (currentK6Process != null && currentK6Process.isAlive()) {
+            log.info("Destroying K6 process handle.");
+            currentK6Process.destroy();
+        }
+        
         isRunning.set(false);
-        log.info("K6 test stopped");
+        lastTestResult.put("status", "stopped");
     }
 
     @Override
@@ -273,6 +225,7 @@ public class K6ControlServiceImpl implements K6ControlService {
     public Map<String, String> getLastTestResult() {
         return Map.copyOf(lastTestResult);
     }
+
 
     @Override
     public Map<String, Object> getK6Status() {

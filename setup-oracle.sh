@@ -14,8 +14,16 @@ fi
 echo "✅ Oracle DB container is running"
 echo "Creating testuser..."
 
-# SQL 명령어 실행
-docker exec -i load-test-oracle sqlplus -s system/OraclePassword123@//localhost:1521/XEPDB1 <<EOF
+MAX_RETRIES=6
+RETRY_INTERVAL=10
+RETRY_COUNT=0
+SUCCESS=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    echo "Attempting to connect to Oracle DB (Attempt: $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
+
+    # SQL 명령어 실행
+    docker exec -i load-test-oracle sqlplus -s system/OraclePassword123@//localhost:1521/XEPDB1 <<EOF
 ALTER SESSION SET CONTAINER = XEPDB1;
 
 -- Drop user if exists
@@ -48,12 +56,22 @@ SELECT username FROM dba_users WHERE username = 'TESTUSER';
 EXIT;
 EOF
 
-if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ]; then
+        SUCCESS=true
+        break
+    else
+        echo "Connection failed. Retrying in $RETRY_INTERVAL seconds..."
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        sleep $RETRY_INTERVAL
+    fi
+done
+
+if [ "$SUCCESS" = "true" ]; then
     echo "✅ testuser created successfully!"
     echo ""
     echo "Now you can start the app:"
     echo "  docker compose up -d app"
 else
-    echo "❌ Failed to create user"
+    echo "❌ Failed to create user after $MAX_RETRIES attempts."
     exit 1
 fi

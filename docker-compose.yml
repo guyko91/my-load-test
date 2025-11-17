@@ -22,6 +22,20 @@ services:
     networks:
       - load-test-network
 
+  # Oracle DB Setup Service
+  oracle-setup:
+    image: docker:latest
+    container_name: oracle-setup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./setup-oracle.sh:/setup-oracle.sh
+    command: ["sh", "/setup-oracle.sh"]
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    networks:
+      - load-test-network
+
   # Spring Boot Application
   app:
     build:
@@ -30,40 +44,32 @@ services:
       platforms:
         - linux/amd64
         - linux/arm64
+      no_cache: true
     container_name: load-test-app
-    ports:
-      - "28080:28080"
+    network_mode: "host"
     environment:
       - SPRING_PROFILES_ACTIVE=real
+      - HOST_PROJECT_PATH=${PWD}
+      - OTEL_RESOURCE_ATTRIBUTES="service.name=load-test,service.namespace=test,service.version=1.0.0,env=dev"
+      - OTEL_EXPORTER_OTLP_HEADERS="api-key=key,other-config-value=value"
+      - OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      - OTEL_TRACES_EXPORTER="otlp"
+      - OTEL_METRICS_EXPORTER="otlp"
+      - OTEL_LOGS_EXPORTER="otlp"
+      - OTEL_EXPORTER_OTLP_ENDPOINT="http://10.101.91.145:4317"
+      - OTEL_JAVAAGENT_DEBUG=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./k6:/scripts
+    user: root
     depends_on:
-      oracle-db:
-        condition: service_healthy
+      oracle-setup:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:28080/api/load/status"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - load-test-network
-
-  # K6 Load Generator (수동 실행용 - 대시보드에서 제어)
-  k6:
-    image: grafana/k6:latest
-    container_name: load-test-k6
-    volumes:
-      - ./k6:/scripts
-    environment:
-      - BASE_URL=http://host.docker.internal:28080
-    # command는 대시보드에서 docker compose run으로 실행하므로 주석처리
-    # command: run /scripts/scenarios.js
-    networks:
-      - load-test-network
-    profiles:
-      - manual  # 자동 시작 방지
 
 volumes:
   oracle-data:
