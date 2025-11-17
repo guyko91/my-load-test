@@ -34,29 +34,63 @@ Oracle DB는 x86 전용이므로 Rosetta 2 에뮬레이션이 필요합니다.
 # Settings > General > "Use Rosetta for x86/amd64 emulation on Apple Silicon" 체크
 ```
 
-## 4단계: 전체 환경 시작
+## 4단계: 환경 시작 (단계별)
+
+### 4-1. Oracle DB 시작
 
 ```bash
-# 모든 컨테이너 시작 (Oracle DB + Spring Boot App + K6)
-docker compose up -d
+# Oracle DB만 먼저 시작
+docker compose up -d oracle-db
 
-# 로그 확인
-docker compose logs -f
+# 로그 확인 (2-3분 대기)
+docker compose logs -f oracle-db
 ```
 
-**⏰ 주의**: Oracle DB는 최초 시작 시 **2-3분** 소요됩니다!
+**"DATABASE IS READY TO USE"** 메시지가 나올 때까지 기다리세요!
+메시지가 나오면 `Ctrl+C`로 로그를 중지하세요.
+
+### 4-2. Oracle 사용자 설정
+
+```bash
+# Oracle 사용자 및 권한 설정 스크립트 실행
+./setup-oracle.sh
+```
+
+성공 메시지:
+```
+✅ testuser created successfully!
+```
+
+### 4-3. Spring Boot App 시작
+
+```bash
+# Spring Boot App 시작
+docker compose up -d app
+
+# 로그 확인
+docker compose logs -f app
+```
+
+**"Started LoadTestToyApplication"** 메시지 확인 후 `Ctrl+C`로 중지
+
+### 4-4. K6 시작 (선택)
+
+```bash
+# K6 부하 테스트 시작
+docker compose up -d k6
+```
 
 ## 5단계: 상태 확인
 
 ```bash
-# 컨테이너 상태 확인
+# 모든 컨테이너 상태 확인
 docker compose ps
 
-# Oracle DB 헬스체크 대기
-docker compose logs oracle-db | grep "DATABASE IS READY TO USE"
-
-# Spring Boot App 로그 확인
-docker compose logs app | grep "Started LoadTestToyApplication"
+# 예상 출력:
+# NAME                STATUS              PORTS
+# load-test-oracle    Up (healthy)        1521/tcp, 5500/tcp
+# load-test-app       Up (healthy)        28080/tcp
+# load-test-k6        Up                  -
 ```
 
 ## 6단계: 대시보드 접속
@@ -131,6 +165,27 @@ docker compose down -v
 
 ## 트러블슈팅
 
+### ⚠️ ORA-01017: invalid username/password 에러
+
+**증상**: Spring Boot App이 시작되지 않고 `ORA-01017` 에러 발생
+
+**원인**: Oracle DB의 `testuser` 계정이 생성되지 않음
+
+**해결**:
+```bash
+# 1. Oracle DB가 실행 중인지 확인
+docker compose ps oracle-db
+
+# 2. setup-oracle.sh 스크립트 실행
+./setup-oracle.sh
+
+# 3. App 재시작
+docker compose restart app
+
+# 4. 로그 확인
+docker compose logs app | grep "Started LoadTestToyApplication"
+```
+
 ### Oracle DB가 시작되지 않음
 
 ```bash
@@ -148,11 +203,17 @@ docker compose up -d oracle-db
 ### Spring Boot App이 DB 연결 실패
 
 ```bash
-# Oracle DB가 완전히 시작될 때까지 대기 (2-3분)
+# 1. Oracle DB가 완전히 시작되었는지 확인 (2-3분)
 docker compose logs oracle-db | grep "DATABASE IS READY TO USE"
 
-# App 재시작
+# 2. setup-oracle.sh 스크립트 실행 (중요!)
+./setup-oracle.sh
+
+# 3. App 재시작
 docker compose restart app
+
+# 4. 로그 확인
+docker compose logs -f app
 ```
 
 ### K6가 시작되지 않음
@@ -233,12 +294,51 @@ Oracle DB는 Rosetta 2로 에뮬레이션되므로:
 
 ## 문제 발생 시
 
-```bash
-# 전체 환경 초기화
-docker compose down -v
-docker system prune -a
+### 완전 초기화 및 재시작
 
-# 재시작
+```bash
+# 1. 모든 컨테이너 중지 및 볼륨 삭제
+docker compose down -v
+
+# 2. Oracle DB 시작 (2-3분 대기)
+docker compose up -d oracle-db
+docker compose logs -f oracle-db
+# "DATABASE IS READY TO USE" 확인 후 Ctrl+C
+
+# 3. Oracle 사용자 설정
+./setup-oracle.sh
+
+# 4. App 시작
+docker compose up -d app
+docker compose logs -f app
+# "Started LoadTestToyApplication" 확인 후 Ctrl+C
+
+# 5. 대시보드 접속
+# http://localhost:28080/
+```
+
+## 빠른 참조
+
+### 한 번에 모든 것 시작하기 (처음 실행 시)
+
+```bash
+# 1. Oracle DB 시작 및 대기
+docker compose up -d oracle-db && \
+sleep 180 && \
+docker compose logs oracle-db | grep "DATABASE IS READY"
+
+# 2. 사용자 설정 및 App 시작
+./setup-oracle.sh && \
+docker compose up -d app
+
+# 3. 대시보드 접속
+open http://localhost:28080/
+```
+
+### 재시작 시 (이미 한 번 실행한 경우)
+
+```bash
+# Oracle 사용자가 이미 생성되어 있다면
 docker compose up -d
 ```
 

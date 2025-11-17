@@ -357,28 +357,67 @@
     <!-- Quick Actions Grid -->
     <div class="card">
         <div class="card-header">
-            <h2>⚡ Quick Actions</h2>
+            <h2>⚡ Quick Tests (단시간)</h2>
         </div>
 
         <div class="quick-actions">
             <div class="quick-action-btn" onclick="quickTest('cpu', 20, 2, 30)">
-                <div class="title">Quick CPU Test</div>
+                <div class="title">🔥 Quick CPU Test</div>
                 <div class="desc">20 RPS, 2분, CPU 70%</div>
             </div>
 
             <div class="quick-action-btn" onclick="quickTest('db', 15, 3, 25)">
-                <div class="title">Quick DB Test</div>
+                <div class="title">💾 Quick DB Test</div>
                 <div class="desc">15 RPS, 3분, DB 조회</div>
             </div>
 
             <div class="quick-action-btn" onclick="quickTest('realistic', 10, 5, 20)">
-                <div class="title">Realistic Load</div>
+                <div class="title">⚙️ Realistic Load</div>
                 <div class="desc">10 RPS, 5분, 혼합</div>
             </div>
 
             <div class="quick-action-btn" onclick="quickTest('high_burst', 30, 3, 50)">
-                <div class="title">High Burst</div>
+                <div class="title">⚡ High Burst</div>
                 <div class="desc">30 RPS, 3분, 고부하</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Long Running Scenarios Grid -->
+    <div class="card">
+        <div class="card-header">
+            <h2>🕐 Long Running Scenarios (장시간)</h2>
+        </div>
+
+        <div class="quick-actions">
+            <div class="quick-action-btn" onclick="longScenario('daily_pattern')">
+                <div class="title">📅 Daily Pattern</div>
+                <div class="desc">8시간 - 일반 하루 패턴</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="longScenario('gradual_increase')">
+                <div class="title">📈 Gradual Increase</div>
+                <div class="desc">4시간 - 점진적 부하 증가</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="longScenario('spike_pattern')">
+                <div class="title">⚡ Spike Pattern</div>
+                <div class="desc">3시간 - 급격한 트래픽 스파이크</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="longScenario('black_friday')">
+                <div class="title">🛒 Black Friday</div>
+                <div class="desc">6시간 - 대규모 이벤트 패턴</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="longScenario('night_batch')">
+                <div class="title">🌙 Night Batch</div>
+                <div class="desc">2시간 - 야간 배치 작업</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="longScenario('stress_test')">
+                <div class="title">💪 Stress Test</div>
+                <div class="desc">2시간 - 최대 부하 스트레스</div>
             </div>
         </div>
     </div>

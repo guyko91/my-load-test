@@ -45,6 +45,14 @@ public class DashboardController {
         return ResponseEntity.ok(Map.of("status", "started"));
     }
 
+    @PostMapping("/api/dashboard/k6/long-scenario")
+    @ResponseBody
+    public ResponseEntity<?> startLongScenario(@RequestBody Map<String, Object> request) {
+        String scenario = (String) request.getOrDefault("scenario", "daily_pattern");
+        k6Service.startLongScenario(scenario);
+        return ResponseEntity.ok(Map.of("status", "started", "scenario", scenario));
+    }
+
     @PostMapping("/api/dashboard/k6/stop")
     @ResponseBody
     public ResponseEntity<?> stopK6() {

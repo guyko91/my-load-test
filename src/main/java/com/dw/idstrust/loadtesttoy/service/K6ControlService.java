@@ -94,6 +94,74 @@ public class K6ControlService {
         }
     }
 
+    public void startLongScenario(String scenarioName) {
+        if (isRunning.get()) {
+            log.warn("K6 test already running, skipping long scenario request");
+            return;
+        }
+
+        try {
+            isRunning.set(true);
+            lastTestResult.clear();
+            lastTestResult.put("status", "running");
+            lastTestResult.put("scenario", scenarioName);
+            lastTestResult.put("type", "long");
+            lastTestResult.put("startTime", String.valueOf(System.currentTimeMillis()));
+
+            List<String> command = new ArrayList<>();
+            command.add("k6");
+            command.add("run");
+            command.add("--out");
+            command.add("json=/tmp/k6-long-results.json");
+            command.add("-e");
+            command.add("SCENARIO=" + scenarioName);
+            command.add("-e");
+            command.add("BASE_URL=http://localhost:28080");
+            command.add("/scripts/long-scenarios.js");
+
+            log.info("Starting K6 long scenario: {}", scenarioName);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+            currentK6Process = pb.start();
+
+            // Read output in background thread
+            new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(currentK6Process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        log.info("K6: {}", line);
+                    }
+                } catch (Exception e) {
+                    log.error("Error reading K6 output", e);
+                }
+            }).start();
+
+            // Wait for process completion in background
+            new Thread(() -> {
+                try {
+                    int exitCode = currentK6Process.waitFor();
+                    lastTestResult.put("status", exitCode == 0 ? "completed" : "failed");
+                    lastTestResult.put("exitCode", String.valueOf(exitCode));
+                    lastTestResult.put("endTime", String.valueOf(System.currentTimeMillis()));
+                    log.info("K6 long scenario finished with exit code: {}", exitCode);
+                } catch (InterruptedException e) {
+                    lastTestResult.put("status", "interrupted");
+                    Thread.currentThread().interrupt();
+                } finally {
+                    isRunning.set(false);
+                }
+            }).start();
+
+        } catch (Exception e) {
+            log.error("Failed to start K6 long scenario", e);
+            isRunning.set(false);
+            lastTestResult.put("status", "error");
+            lastTestResult.put("error", e.getMessage());
+        }
+    }
+
     public void stopK6Test() {
         if (currentK6Process != null && currentK6Process.isAlive()) {
             log.info("Stopping K6 test");

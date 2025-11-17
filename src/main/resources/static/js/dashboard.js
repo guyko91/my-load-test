@@ -247,3 +247,53 @@ async function quickTest(scenario, rps, duration, vus) {
         alert('Quick Test 시작 중 오류 발생');
     }
 }
+
+// Long Running Scenario Function (called from HTML)
+async function longScenario(scenarioName) {
+    if (isK6Running) {
+        alert('이미 K6 테스트가 실행 중입니다.');
+        return;
+    }
+
+    const scenarios = {
+        'daily_pattern': { name: 'Daily Pattern', duration: '8시간', desc: '일반적인 하루 업무 패턴 (새벽→출근→점심→오후→퇴근)' },
+        'gradual_increase': { name: 'Gradual Increase', duration: '4시간', desc: '점진적 부하 증가 (5 VUs → 100 VUs)' },
+        'spike_pattern': { name: 'Spike Pattern', duration: '3시간', desc: '급격한 트래픽 스파이크 3회 발생' },
+        'black_friday': { name: 'Black Friday', duration: '6시간', desc: '대규모 이벤트 (최대 200 VUs)' },
+        'night_batch': { name: 'Night Batch', duration: '2시간', desc: '야간 배치 작업 패턴' },
+        'stress_test': { name: 'Stress Test', duration: '2시간', desc: '점진적 스트레스 테스트 (최대 300 VUs)' }
+    };
+
+    const scenario = scenarios[scenarioName];
+    if (!scenario) {
+        alert('잘못된 시나리오입니다.');
+        return;
+    }
+
+    const confirmMsg = `${scenario.name} 시작하시겠습니까?\n\n` +
+                      `⏱️ 예상 소요 시간: ${scenario.duration}\n` +
+                      `📋 설명: ${scenario.desc}\n\n` +
+                      `⚠️ 장시간 테스트이므로 시스템 리소스를 모니터링하세요.`;
+
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/dashboard/k6/long-scenario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scenario: scenarioName })
+        });
+
+        if (res.ok) {
+            alert(`${scenario.name} 시작!\n\n예상 소요 시간: ${scenario.duration}\n\n대시보드에서 실시간 상태를 확인하세요.`);
+            await refreshK6Status();
+        } else {
+            alert('장시간 테스트 시작 실패');
+        }
+    } catch (error) {
+        console.error('Failed to start long scenario:', error);
+        alert('장시간 테스트 시작 중 오류 발생');
+    }
+}
