@@ -20,7 +20,7 @@ services:
       retries: 5
       start_period: 120s
     networks:
-      - load-test-network
+      - load-test-net
 
   # Oracle DB Setup Service
   oracle-setup:
@@ -34,16 +34,13 @@ services:
       oracle-db:
         condition: service_healthy
     networks:
-      - load-test-network
+      - load-test-net
 
   # Spring Boot Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      platforms:
-        - linux/amd64
-        - linux/arm64
       no_cache: true
     container_name: load-test-app
     ports:
@@ -64,12 +61,13 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - load-test-network
+      - load-test-net
 
 volumes:
   oracle-data:
     driver: local
 
 networks:
-  load-test-network:
+  load-test-net:
+    name: load-test-net
     driver: bridge

@@ -1,3 +1,26 @@
+// Toast Notification Function
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    // Show the toast
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+
+    // Hide and remove the toast after 4 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, 4000);
+}
+
+
 // Dashboard State
 let isK6Running = false;
 let refreshInterval;
@@ -30,7 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
     startK6Btn.addEventListener('click', startK6Test);
     stopK6Btn.addEventListener('click', stopK6Test);
     stopAllBtn.addEventListener('click', stopAllWorkloads);
-    refreshDbBtn.addEventListener('click', refreshDatabaseStatus);
+    refreshDbBtn.addEventListener('click', () => {
+        refreshDatabaseStatus();
+        showToast('Database status refreshed!', 'info');
+    });
 });
 
 // Auto Refresh (every 3 seconds)
@@ -137,7 +163,7 @@ async function startK6Test() {
     const vus = parseInt(vusInput.value);
 
     if (!scenario || rps < 1 || duration < 1 || vus < 1) {
-        alert('올바른 값을 입력해주세요.');
+        showToast('Please enter valid values for the test.', 'error');
         return;
     }
 
@@ -151,14 +177,14 @@ async function startK6Test() {
         });
 
         if (res.ok) {
-            alert(`K6 테스트 시작!\nScenario: ${scenario}\nRPS: ${rps}\nDuration: ${duration}분\nVUs: ${vus}`);
+            showToast(`K6 test started: ${scenario}`, 'success');
             await refreshK6Status();
         } else {
-            alert('K6 테스트 시작 실패');
+            showToast('Failed to start K6 test.', 'error');
         }
     } catch (error) {
         console.error('Failed to start K6:', error);
-        alert('K6 테스트 시작 중 오류 발생');
+        showToast('An error occurred while starting the K6 test.', 'error');
     } finally {
         startK6Btn.disabled = false;
     }
@@ -166,7 +192,7 @@ async function startK6Test() {
 
 // Stop K6 Test
 async function stopK6Test() {
-    if (!confirm('K6 테스트를 중지하시겠습니까?')) {
+    if (!confirm('Are you sure you want to stop the K6 test?')) {
         return;
     }
 
@@ -178,14 +204,14 @@ async function stopK6Test() {
         });
 
         if (res.ok) {
-            alert('K6 테스트 중지됨');
+            showToast('K6 test stopped.', 'info');
             await refreshK6Status();
         } else {
-            alert('K6 테스트 중지 실패');
+            showToast('Failed to stop K6 test.', 'error');
         }
     } catch (error) {
         console.error('Failed to stop K6:', error);
-        alert('K6 테스트 중지 중 오류 발생');
+        showToast('An error occurred while stopping the K6 test.', 'error');
     } finally {
         stopK6Btn.disabled = false;
     }
@@ -193,7 +219,7 @@ async function stopK6Test() {
 
 // Stop All Workloads
 async function stopAllWorkloads() {
-    if (!confirm('모든 워크로드를 중지하시겠습니까?')) {
+    if (!confirm('Are you sure you want to stop all workloads?')) {
         return;
     }
 
@@ -205,14 +231,14 @@ async function stopAllWorkloads() {
         });
 
         if (res.ok) {
-            alert('모든 워크로드가 중지되었습니다.');
+            showToast('All workloads have been stopped.', 'info');
             await refreshAppStatus();
         } else {
-            alert('워크로드 중지 실패');
+            showToast('Failed to stop workloads.', 'error');
         }
     } catch (error) {
         console.error('Failed to stop workloads:', error);
-        alert('워크로드 중지 중 오류 발생');
+        showToast('An error occurred while stopping workloads.', 'error');
     } finally {
         stopAllBtn.disabled = false;
     }
@@ -221,11 +247,11 @@ async function stopAllWorkloads() {
 // Quick Test Function (called from HTML)
 async function quickTest(scenario, rps, duration, vus) {
     if (isK6Running) {
-        alert('이미 K6 테스트가 실행 중입니다.');
+        showToast('A K6 test is already running.', 'info');
         return;
     }
 
-    if (!confirm(`Quick Test 시작\nScenario: ${scenario}\nRPS: ${rps}\nDuration: ${duration}분\nVUs: ${vus}`)) {
+    if (!confirm(`Start Quick Test?\nScenario: ${scenario}, RPS: ${rps}, Duration: ${duration}min, VUs: ${vus}`)) {
         return;
     }
 
@@ -237,43 +263,43 @@ async function quickTest(scenario, rps, duration, vus) {
         });
 
         if (res.ok) {
-            alert('Quick Test 시작!');
+            showToast('Quick Test started!', 'success');
             await refreshK6Status();
         } else {
-            alert('Quick Test 시작 실패');
+            showToast('Failed to start Quick Test.', 'error');
         }
     } catch (error) {
         console.error('Failed to start quick test:', error);
-        alert('Quick Test 시작 중 오류 발생');
+        showToast('An error occurred while starting the Quick Test.', 'error');
     }
 }
 
 // Long Running Scenario Function (called from HTML)
 async function longScenario(scenarioName) {
     if (isK6Running) {
-        alert('이미 K6 테스트가 실행 중입니다.');
+        showToast('A K6 test is already running.', 'info');
         return;
     }
 
     const scenarios = {
-        'daily_pattern': { name: 'Daily Pattern', duration: '8시간', desc: '일반적인 하루 업무 패턴 (새벽→출근→점심→오후→퇴근)' },
-        'gradual_increase': { name: 'Gradual Increase', duration: '4시간', desc: '점진적 부하 증가 (5 VUs → 100 VUs)' },
-        'spike_pattern': { name: 'Spike Pattern', duration: '3시간', desc: '급격한 트래픽 스파이크 3회 발생' },
-        'black_friday': { name: 'Black Friday', duration: '6시간', desc: '대규모 이벤트 (최대 200 VUs)' },
-        'night_batch': { name: 'Night Batch', duration: '2시간', desc: '야간 배치 작업 패턴' },
-        'stress_test': { name: 'Stress Test', duration: '2시간', desc: '점진적 스트레스 테스트 (최대 300 VUs)' }
+        'daily_pattern': { name: 'Daily Pattern', duration: '8 hours', desc: 'Simulates a typical business day (dawn→morning→lunch→afternoon→evening)' },
+        'gradual_increase': { name: 'Gradual Increase', duration: '4 hours', desc: 'Gradually increases load (5 VUs → 100 VUs)' },
+        'spike_pattern': { name: 'Spike Pattern', duration: '3 hours', desc: 'Generates 3 sudden traffic spikes' },
+        'black_friday': { name: 'Black Friday', duration: '6 hours', desc: 'Simulates a large-scale event (up to 200 VUs)' },
+        'night_batch': { name: 'Night Batch', duration: '2 hours', desc: 'Simulates a nightly batch job pattern' },
+        'stress_test': { name: 'Stress Test', duration: '2 hours', desc: 'Gradual stress test (up to 300 VUs)' }
     };
 
     const scenario = scenarios[scenarioName];
     if (!scenario) {
-        alert('잘못된 시나리오입니다.');
+        showToast('Invalid scenario selected.', 'error');
         return;
     }
 
-    const confirmMsg = `${scenario.name} 시작하시겠습니까?\n\n` +
-                      `⏱️ 예상 소요 시간: ${scenario.duration}\n` +
-                      `📋 설명: ${scenario.desc}\n\n` +
-                      `⚠️ 장시간 테스트이므로 시스템 리소스를 모니터링하세요.`;
+    const confirmMsg = `Start ${scenario.name}?\n\n` +
+                      `⏱️ Estimated Duration: ${scenario.duration}\n` +
+                      `📋 Description: ${scenario.desc}\n\n` +
+                      `⚠️ This is a long-running test. Monitor system resources.`;
 
     if (!confirm(confirmMsg)) {
         return;
@@ -287,13 +313,13 @@ async function longScenario(scenarioName) {
         });
 
         if (res.ok) {
-            alert(`${scenario.name} 시작!\n\n예상 소요 시간: ${scenario.duration}\n\n대시보드에서 실시간 상태를 확인하세요.`);
+            showToast(`${scenario.name} started!`, 'success');
             await refreshK6Status();
         } else {
-            alert('장시간 테스트 시작 실패');
+            showToast('Failed to start long-running test.', 'error');
         }
     } catch (error) {
         console.error('Failed to start long scenario:', error);
-        alert('장시간 테스트 시작 중 오류 발생');
+        showToast('An error occurred while starting the long-running test.', 'error');
     }
 }

@@ -31,7 +31,7 @@ public class K6ControlServiceImpl implements K6ControlService {
     private final String networkName;
 
     public K6ControlServiceImpl(@Value("${k6.base-url:http://app:28080}") String baseUrl,
-                                @Value("${k6.docker.network:load-test-toy_load-test-network}") String networkName) {
+                                @Value("${k6.docker.network:load-test-net}") String networkName) {
         this.baseUrl = baseUrl;
         this.networkName = networkName;
         this.dockerCommand = findDockerCommand();
