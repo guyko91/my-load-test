@@ -22,48 +22,48 @@ services:
     networks:
       - load-test-network
 
-  # Spring Boot Application
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      platforms:
-        - linux/amd64
-        - linux/arm64
-    container_name: load-test-app
-    ports:
-      - "28080:28080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:oracle:thin:@oracle-db:1521/XEPDB1
-      - SPRING_DATASOURCE_USERNAME=testuser
-      - SPRING_DATASOURCE_PASSWORD=testpass
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-    depends_on:
-      oracle-db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:28080/api/load/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - load-test-network
+  # Spring Boot Application (주석처리 - 로컬 IntelliJ에서 구동)
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     platforms:
+  #       - linux/amd64
+  #       - linux/arm64
+  #   container_name: load-test-app
+  #   ports:
+  #     - "28080:28080"
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=real
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./k6:/scripts
+  #   depends_on:
+  #     oracle-db:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:28080/api/load/status"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+  #   networks:
+  #     - load-test-network
 
-  # K6 Load Generator
+  # K6 Load Generator (수동 실행용 - 대시보드에서 제어)
   k6:
     image: grafana/k6:latest
     container_name: load-test-k6
     volumes:
       - ./k6:/scripts
     environment:
-      - BASE_URL=http://app:28080
-    command: run /scripts/scenarios.js
-    depends_on:
-      app:
-        condition: service_healthy
+      - BASE_URL=http://host.docker.internal:28080
+    # command는 대시보드에서 docker compose run으로 실행하므로 주석처리
+    # command: run /scripts/scenarios.js
     networks:
       - load-test-network
+    profiles:
+      - manual  # 자동 시작 방지
 
 volumes:
   oracle-data:
