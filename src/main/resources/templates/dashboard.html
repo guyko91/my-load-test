@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Test Control Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .card-header h2 {
+            font-size: 1.4rem;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-stopped {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-idle {
+            background: #6b7280;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #059669;
+        }
+
+        .stat-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box h3 {
+            color: #667eea;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-box .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .quick-action-btn {
+            padding: 15px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .quick-action-btn:hover {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .quick-action-btn .title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .quick-action-btn .desc {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+
+        .quick-action-btn:hover .desc {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .test-result {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .test-result.show {
+            display: block;
+        }
+
+        .test-result .label {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 5px;
+        }
+
+        .test-result .info {
+            color: #374151;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>⚡ Load Test Control Dashboard</h1>
+        <p>K6 기반 부하 테스트 제어 및 모니터링</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- K6 Control Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🚀 K6 Load Test</h2>
+                <span id="k6-status-badge" class="status-badge status-idle">IDLE</span>
+            </div>
+
+            <div class="form-group">
+                <label>시나리오 선택</label>
+                <select id="scenario-select">
+                    <option value="realistic">Realistic (DB + CPU 40%)</option>
+                    <option value="cpu">CPU Load (70%)</option>
+                    <option value="db">DB Query Only</option>
+                    <option value="mixed">Mixed (CPU 60% + IO)</option>
+                    <option value="high_burst">High Burst (CPU 80% + DB)</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>RPS (Requests/sec)</label>
+                    <input type="number" id="rps-input" value="10" min="1" max="1000">
+                </div>
+                <div class="form-group">
+                    <label>Duration (분)</label>
+                    <input type="number" id="duration-input" value="5" min="1" max="60">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Virtual Users (VUs)</label>
+                <input type="number" id="vus-input" value="20" min="1" max="500">
+            </div>
+
+            <button id="start-k6-btn" class="btn btn-primary">▶ Start K6 Test</button>
+            <button id="stop-k6-btn" class="btn btn-danger" style="display: none;">⏹ Stop K6 Test</button>
+
+            <div id="k6-result" class="test-result">
+                <div class="label">Test Status</div>
+                <div class="info" id="k6-result-info">-</div>
+            </div>
+        </div>
+
+        <!-- Database Status Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>💾 Database Status</h2>
+                <span class="status-badge status-running">CONNECTED</span>
+            </div>
+
+            <div class="stat-box">
+                <h3>Total Orders</h3>
+                <div class="value" id="order-count" th:text="${orderCount}">0</div>
+            </div>
+
+            <div class="stat-box">
+                <h3>Database Type</h3>
+                <div class="value" style="font-size: 1.5rem;">Oracle XE 21c</div>
+            </div>
+
+            <button id="refresh-db-btn" class="btn btn-success">🔄 Refresh DB Status</button>
+        </div>
+
+        <!-- Application Status Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>🖥️ Application Status</h2>
+                <span id="app-status-badge" class="status-badge"
+                      th:classappend="${appRunning} ? 'status-running' : 'status-stopped'"
+                      th:text="${appRunning} ? 'RUNNING' : 'IDLE'">IDLE</span>
+            </div>
+
+            <div class="stat-box">
+                <h3>K6 Status</h3>
+                <div class="value" style="font-size: 1.3rem;" id="k6-status-text"
+                     th:text="${k6Running} ? 'Running' : 'Stopped'">Stopped</div>
+            </div>
+
+            <div class="stat-box">
+                <h3>Workload Status</h3>
+                <div class="value" style="font-size: 1.3rem;" id="workload-status-text"
+                     th:text="${appRunning} ? 'Active' : 'Idle'">Idle</div>
+            </div>
+
+            <button id="stop-all-btn" class="btn btn-danger">⛔ Stop All Workloads</button>
+        </div>
+    </div>
+
+    <!-- Quick Actions Grid -->
+    <div class="card">
+        <div class="card-header">
+            <h2>⚡ Quick Actions</h2>
+        </div>
+
+        <div class="quick-actions">
+            <div class="quick-action-btn" onclick="quickTest('cpu', 20, 2, 30)">
+                <div class="title">Quick CPU Test</div>
+                <div class="desc">20 RPS, 2분, CPU 70%</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="quickTest('db', 15, 3, 25)">
+                <div class="title">Quick DB Test</div>
+                <div class="desc">15 RPS, 3분, DB 조회</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="quickTest('realistic', 10, 5, 20)">
+                <div class="title">Realistic Load</div>
+                <div class="desc">10 RPS, 5분, 혼합</div>
+            </div>
+
+            <div class="quick-action-btn" onclick="quickTest('high_burst', 30, 3, 50)">
+                <div class="title">High Burst</div>
+                <div class="desc">30 RPS, 3분, 고부하</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/dashboard-new.js}"></script>
+</body>
+</html>
