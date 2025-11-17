@@ -1,7 +1,7 @@
 package com.dw.idstrust.loadtesttoy.controller;
 
 import com.dw.idstrust.loadtesttoy.service.DatabaseService;
-import com.dw.idstrust.loadtesttoy.service.LocalK6ControlService;
+import com.dw.idstrust.loadtesttoy.service.K6ControlService;
 import com.dw.idstrust.loadtesttoy.service.LoadGeneratorService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -14,11 +14,11 @@ import java.util.Map;
 public class DashboardController {
     private final LoadGeneratorService loadService;
     private final DatabaseService databaseService;
-    private final LocalK6ControlService k6Service;
+    private final K6ControlService k6Service;
 
     public DashboardController(LoadGeneratorService loadService,
                                DatabaseService databaseService,
-                               LocalK6ControlService k6Service) {
+                               K6ControlService k6Service) {
         this.loadService = loadService;
         this.databaseService = databaseService;
         this.k6Service = k6Service;
