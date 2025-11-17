@@ -19,13 +19,10 @@ COPY aws-opentelemetry-agent.jar /app/aws-opentelemetry-agent.jar
 # Copy the Docker CLI binary from the docker-cli stage
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
-# Create a non-root user and add to docker group
-USER root
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN usermod -aG docker appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# Copy and set up the entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 28080
 
-ENTRYPOINT ["java", "-javaagent:/app/aws-opentelemetry-agent.jar", "-jar", "app.jar"]
+ENTRYPOINT ["/app/entrypoint.sh"]

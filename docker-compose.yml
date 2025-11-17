@@ -46,18 +46,11 @@ services:
         - linux/arm64
       no_cache: true
     container_name: load-test-app
-    network_mode: "host"
+    ports:
+      - "28080:28080"
     environment:
       - SPRING_PROFILES_ACTIVE=real
       - HOST_PROJECT_PATH=${PWD}
-      - OTEL_RESOURCE_ATTRIBUTES="service.name=load-test,service.namespace=test,service.version=1.0.0,env=dev"
-      - OTEL_EXPORTER_OTLP_HEADERS="api-key=key,other-config-value=value"
-      - OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-      - OTEL_TRACES_EXPORTER="otlp"
-      - OTEL_METRICS_EXPORTER="otlp"
-      - OTEL_LOGS_EXPORTER="otlp"
-      - OTEL_EXPORTER_OTLP_ENDPOINT="http://10.101.91.145:4317"
-      - OTEL_JAVAAGENT_DEBUG=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     user: root
@@ -70,6 +63,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks:
+      - load-test-network
 
 volumes:
   oracle-data:
