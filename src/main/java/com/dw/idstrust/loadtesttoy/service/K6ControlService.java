@@ -22,6 +22,13 @@ public interface K6ControlService {
     String startTest(String testType, String scenario, int rps, int durationMinutes, int vus, String scriptName);
 
     /**
+     * 지정된 ID의 K6 테스트를 중지합니다.
+     *
+     * @param testId 중지할 테스트의 ID
+     */
+    void stopTest(String testId);
+
+    /**
      * 실행 중인 모든 K6 테스트를 중지합니다.
      */
     void stopAllTests();

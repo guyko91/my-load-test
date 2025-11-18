@@ -35,6 +35,7 @@
             </div>
             <input type="hidden" id="baseline-scenario-select" value="db">
             <button id="start-baseline-btn" class="btn btn-primary">▶ Start Baseline</button>
+            <button id="stop-baseline-btn" class="btn btn-danger" style="display: none;">⏹️ Stop Baseline</button>
             <div id="baseline-result" class="test-result">
                 <div class="label">Test Status</div>
                 <div class="info" id="baseline-result-info">-</div>
@@ -78,6 +79,7 @@
             </div>
 
             <button id="start-scenario-btn" class="btn btn-primary">▶ Start Scenario</button>
+            <button id="stop-scenario-btn" class="btn btn-danger" style="display: none;">⏹️ Stop Scenario</button>
             <div id="scenario-result" class="test-result">
                 <div class="label">Test Status</div>
                 <div class="info" id="scenario-result-info">-</div>
@@ -87,10 +89,10 @@
         <!-- Application Status Card -->
         <div class="card">
             <div class="card-header">
-                <h2>🖥️ Global Control</h2>
+                <h2>🌐 Global Status & Control</h2>
             </div>
              <div class="stat-box">
-                <h3>App Status</h3>
+                <h3>Internal Workload</h3>
                 <div id="app-status-badge" class="value" style="font-size: 1.3rem;">-</div>
             </div>
             <div class="stat-box">

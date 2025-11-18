@@ -76,7 +76,7 @@ public class K6ControlServiceImpl implements K6ControlService {
         String testId = testType + "-" + UUID.randomUUID().toString().substring(0, 8);
 
         try {
-            List<String> command = buildDockerCommand(testType, scenario, rps, durationMinutes, vus, scriptName);
+            List<String> command = buildDockerCommand(testId, scenario, rps, durationMinutes, vus, scriptName);
             log.info("Starting K6 test [ID: {}] with command: {}", testId, String.join(" ", command));
 
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -95,13 +95,13 @@ public class K6ControlServiceImpl implements K6ControlService {
         }
     }
 
-    private List<String> buildDockerCommand(String testType, String scenario, int rps, int durationMinutes, int vus, String scriptName) {
+    private List<String> buildDockerCommand(String testId, String scenario, int rps, int durationMinutes, int vus, String scriptName) {
         List<String> command = new ArrayList<>();
         command.add(dockerCommand);
         command.add("run");
         command.add("--rm");
-        command.add("--name"); // 컨테이너에 이름 부여
-        command.add("k6-" + testType + "-" + System.currentTimeMillis());
+        command.add("--name"); // 컨테이너에 예측 가능한 이름 부여
+        command.add("k6-" + testId);
         command.add("--user");
         command.add("root");
         command.add("--network");
@@ -135,7 +135,7 @@ public class K6ControlServiceImpl implements K6ControlService {
                     log.info("K6 [{}]: {}", instance.id, line);
                 }
             } catch (Exception e) {
-                if (!e.getMessage().contains("Stream closed")) {
+                if (instance.process.isAlive() && !e.getMessage().contains("Stream closed")) {
                     log.error("Error reading K6 output for test {}", instance.id, e);
                 }
             }
@@ -151,13 +151,47 @@ public class K6ControlServiceImpl implements K6ControlService {
             } catch (InterruptedException e) {
                 instance.result.put("status", "interrupted");
                 Thread.currentThread().interrupt();
+                log.warn("K6 test [{}] was interrupted.", instance.id);
             } finally {
-                instance.result.put("endTime", String.valueOf(System.currentTimeMillis()));
                 runningTests.remove(instance.id);
                 lastFinishedTests.put(instance.type, instance.result); // 타입별로 마지막 결과 저장
             }
         }).start();
     }
+
+    @Override
+    public void stopTest(String testId) {
+        K6TestInstance instance = runningTests.get(testId);
+        if (instance == null) {
+            log.warn("Attempted to stop a test that is not running or does not exist: {}", testId);
+            return;
+        }
+
+        log.info("Attempting to stop K6 test [ID: {}]...", testId);
+        String containerName = "k6-" + testId;
+
+        // 1. Stop the docker container by name
+        try {
+            log.info("Stopping K6 container with name: {}", containerName);
+            new ProcessBuilder(dockerCommand, "stop", containerName).start().waitFor();
+            log.info("K6 container {} stopped.", containerName);
+        } catch (Exception e) {
+            log.error("Error while stopping K6 Docker container {}", containerName, e);
+        }
+
+        // 2. Destroy the process handle
+        if (instance.process.isAlive()) {
+            log.info("Destroying K6 process handle for test [{}].", testId);
+            instance.process.destroy();
+        }
+
+        // 3. Update status
+        instance.result.put("status", "stopped");
+        instance.result.put("endTime", String.valueOf(System.currentTimeMillis()));
+        runningTests.remove(testId);
+        lastFinishedTests.put(instance.type, instance.result);
+    }
+
 
     @Override
     public void stopAllTests() {

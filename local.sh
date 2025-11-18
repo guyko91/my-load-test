@@ -39,7 +39,6 @@ export OTEL_LOGS_EXPORTER="otlp"
 # IMPORTANT: Change this endpoint if your collector is not running on this address
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://10.101.91.145:4317"
 export OTEL_JAVAAGENT_DEBUG="true"
-export OTEL_JAVA_DISABLED_RESOURCE_PROVIDERS="io.opentelemetry.contrib.aws.resource.Ec2ResourceProvider"
 
 echo "OTEL Endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}"
 echo "JAR File:      ${JAR_PATH}"

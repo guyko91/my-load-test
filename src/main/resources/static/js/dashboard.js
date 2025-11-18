@@ -16,7 +16,6 @@ function showToast(message, type = 'info') {
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Selectors ---
     const elements = {
-        // Baseline
         baseline: {
             statusBadge: document.getElementById('baseline-status-badge'),
             resultDiv: document.getElementById('baseline-result'),
@@ -25,8 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
             vusInput: document.getElementById('baseline-vus-input'),
             scenarioInput: document.getElementById('baseline-scenario-select'),
             startBtn: document.getElementById('start-baseline-btn'),
+            stopBtn: document.getElementById('stop-baseline-btn'),
         },
-        // Scenario
         scenario: {
             statusBadge: document.getElementById('scenario-status-badge'),
             resultDiv: document.getElementById('scenario-result'),
@@ -36,14 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
             durationInput: document.getElementById('scenario-duration-input'),
             vusInput: document.getElementById('scenario-vus-input'),
             startBtn: document.getElementById('start-scenario-btn'),
+            stopBtn: document.getElementById('stop-scenario-btn'),
         },
-        // Global
         global: {
             stopAllBtn: document.getElementById('stop-all-k6-btn'),
             appStatusBadge: document.getElementById('app-status-badge'),
             orderCount: document.getElementById('order-count'),
         },
-        // DB Pool
         dbPool: {
             value: document.getElementById('pool-size-value'),
             input: document.getElementById('pool-size-input'),
@@ -52,13 +50,14 @@ document.addEventListener('DOMContentLoaded', () => {
             idleValue: document.getElementById('pool-idle-value'),
             pendingValue: document.getElementById('pool-pending-value'),
         },
-        // Long Scenarios
         longScenarioGrid: document.getElementById('long-scenario-grid'),
     };
 
     // --- Event Listeners ---
     elements.baseline.startBtn.addEventListener('click', startBaselineTest);
+    elements.baseline.stopBtn.addEventListener('click', () => stopTest(elements.baseline.stopBtn.dataset.testId));
     elements.scenario.startBtn.addEventListener('click', startScenarioTest);
+    elements.scenario.stopBtn.addEventListener('click', () => stopTest(elements.scenario.stopBtn.dataset.testId));
     elements.global.stopAllBtn.addEventListener('click', stopAllK6Tests);
     elements.dbPool.setBtn.addEventListener('click', setPoolSize);
 
@@ -68,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Functions ---
     function startAutoRefresh() {
-        refreshAllStatus(); // Initial call
+        refreshAllStatus();
         setInterval(refreshAllStatus, 3000);
     }
 
@@ -106,13 +105,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (runningTest) {
             ui.statusBadge.textContent = 'RUNNING';
             ui.statusBadge.className = 'status-badge status-running';
-            ui.startBtn.disabled = true;
+            ui.startBtn.style.display = 'none';
+            ui.stopBtn.style.display = 'block';
+            ui.stopBtn.dataset.testId = runningTest.id;
             ui.resultDiv.classList.add('show');
             ui.resultInfo.textContent = `Scenario: ${runningTest.scenario}, Status: ${runningTest.status}`;
         } else {
             ui.statusBadge.textContent = 'IDLE';
             ui.statusBadge.className = 'status-badge status-idle';
-            ui.startBtn.disabled = false;
+            ui.startBtn.style.display = 'block';
+            ui.stopBtn.style.display = 'none';
+            delete ui.stopBtn.dataset.testId;
             if (lastFinishedTest) {
                 ui.resultDiv.classList.add('show');
                 ui.resultInfo.textContent = `Last: ${lastFinishedTest.scenario}, Status: ${lastFinishedTest.status} (Code: ${lastFinishedTest.exitCode})`;
@@ -123,51 +126,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function startBaselineTest() {
-        const rps = parseInt(elements.baseline.rpsInput.value);
-        const vus = parseInt(elements.baseline.vusInput.value);
-        const scenario = elements.baseline.scenarioInput.value;
-
-        if (rps < 1 || vus < 1) {
+        const payload = {
+            testType: 'baseline',
+            scenario: elements.baseline.scenarioInput.value,
+            rps: parseInt(elements.baseline.rpsInput.value),
+            vus: parseInt(elements.baseline.vusInput.value),
+            duration: 99999, // "Infinite"
+            script: 'dynamic.js'
+        };
+        if (payload.rps < 1 || payload.vus < 1) {
             showToast('Please enter valid values for Baseline test.', 'error');
             return;
         }
-
-        const payload = {
-            testType: 'baseline',
-            scenario: scenario,
-            rps: rps,
-            vus: vus,
-            duration: 99999, // "Infinite" duration
-            script: 'dynamic.js'
-        };
         await startTest(payload, 'baseline');
     }
 
     async function startScenarioTest() {
-        const rps = parseInt(elements.scenario.rpsInput.value);
-        const vus = parseInt(elements.scenario.vusInput.value);
-        const duration = parseInt(elements.scenario.durationInput.value);
-        const scenario = elements.scenario.select.value;
-
-        if (rps < 1 || vus < 1 || duration < 1) {
+        const payload = {
+            testType: 'scenario',
+            scenario: elements.scenario.select.value,
+            rps: parseInt(elements.scenario.rpsInput.value),
+            vus: parseInt(elements.scenario.vusInput.value),
+            duration: parseInt(elements.scenario.durationInput.value),
+            script: 'dynamic.js'
+        };
+        if (payload.rps < 1 || payload.vus < 1 || payload.duration < 1) {
             showToast('Please enter valid values for Scenario test.', 'error');
             return;
         }
-
-        const payload = {
-            testType: 'scenario',
-            scenario: scenario,
-            rps: rps,
-            vus: vus,
-            duration: duration,
-            script: 'dynamic.js'
-        };
         await startTest(payload, 'scenario');
     }
 
     async function startTest(payload, type) {
-        const ui = elements[type];
-        ui.startBtn.disabled = true;
+        elements[type].startBtn.disabled = true;
         try {
             const res = await fetch('/api/dashboard/k6/start', {
                 method: 'POST',
@@ -180,12 +171,33 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const errorData = await res.json();
                 showToast(`Failed to start test: ${errorData.message}`, 'error');
+                elements[type].startBtn.disabled = false;
             }
         } catch (error) {
             console.error(`Failed to start ${type} test:`, error);
             showToast('An error occurred while starting the test.', 'error');
+            elements[type].startBtn.disabled = false;
+        }
+    }
+
+    async function stopTest(testId) {
+        if (!testId) return;
+        const btn = document.querySelector(`[data-test-id="${testId}"]`);
+        if(btn) btn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/dashboard/k6/stop/${testId}`, { method: 'POST' });
+            if (res.ok) {
+                showToast(`Test ${testId} stopped.`, 'info');
+                await refreshK6Status();
+            } else {
+                showToast('Failed to stop test.', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to stop test:', error);
+            showToast('An error occurred while stopping the test.', 'error');
         } finally {
-            // Re-enabling is handled by refreshK6Status
+            if(btn) btn.disabled = false;
         }
     }
 
@@ -193,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('Are you sure you want to stop ALL running K6 tests?')) return;
         elements.global.stopAllBtn.disabled = true;
         try {
-            const res = await fetch('/api/dashboard/k6/stop', { method: 'POST' });
+            const res = await fetch('/api/dashboard/k6/stop-all', { method: 'POST' });
             if (res.ok) {
                 showToast('All K6 tests stopped.', 'info');
                 await refreshK6Status();
@@ -208,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Other Functions (unchanged or minor changes) ---
+    // --- Other Functions ---
     async function refreshAppStatus() {
         try {
             const res = await fetch('/api/dashboard/app/status');
@@ -249,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.dbPool.value.textContent = 'Error';
         }
     }
-
+    
     async function refreshPoolLiveStatus() {
         try {
             const res = await fetch('/api/dashboard/db/pool-status');
@@ -316,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = {
             testType: 'scenario',
             scenario: scenarioName,
-            rps: 1, vus: 1, duration: 1, // These values are ignored by the long-scenario script
+            rps: 1, vus: 1, duration: 1,
             script: 'long-scenarios.js'
         };
         if (confirm(`Start Long Scenario: ${scenarioName}?`)) {

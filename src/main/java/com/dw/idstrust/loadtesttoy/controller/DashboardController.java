@@ -52,9 +52,16 @@ public class DashboardController {
         }
     }
 
-    @PostMapping("/api/dashboard/k6/stop")
+    @PostMapping("/api/dashboard/k6/stop/{testId}")
     @ResponseBody
-    public ResponseEntity<?> stopK6() {
+    public ResponseEntity<?> stopK6Test(@PathVariable String testId) {
+        k6Service.stopTest(testId);
+        return ResponseEntity.ok(Map.of("status", "stopped", "testId", testId));
+    }
+
+    @PostMapping("/api/dashboard/k6/stop-all")
+    @ResponseBody
+    public ResponseEntity<?> stopAllK6() {
         k6Service.stopAllTests();
         return ResponseEntity.ok(Map.of("status", "stopped"));
     }
