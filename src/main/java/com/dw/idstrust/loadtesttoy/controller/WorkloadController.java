@@ -181,4 +181,21 @@ public class WorkloadController {
         databaseService.updateMaxPoolSize(maxPoolSize);
         return ResponseEntity.ok(Map.of("status", "updated", "maxPoolSize", maxPoolSize));
     }
+
+    // '주문 처리' 현실적인 시나리오
+    @PostMapping("/process-order")
+    public ResponseEntity<?> processOrder(@RequestBody Map<String, String> request) {
+        String customerName = request.get("customerName");
+        if (customerName == null || customerName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "customerName is required"));
+        }
+
+        boolean processed = databaseService.processRecentOrder(customerName);
+
+        return ResponseEntity.ok(Map.of(
+                "status", "completed",
+                "customerName", customerName,
+                "processed", processed
+        ));
+    }
 }

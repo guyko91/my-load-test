@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -29,4 +30,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query(value = "SELECT * FROM ORDERS WHERE ROWNUM <= :limit ORDER BY DBMS_RANDOM.VALUE", nativeQuery = true)
     List<Order> findRandomOrders(@Param("limit") int limit);
+
+    Optional<Order> findTopByCustomerNameAndStatusOrderByOrderDateDesc(String customerName, String status);
 }

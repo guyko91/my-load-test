@@ -76,25 +76,35 @@ function executeDBLoad() {
 
 // 현실적인 워크로드 (DB + CPU)
 function executeRealisticLoad() {
-  const res = http.post(`${BASE_URL}/api/workload/realistic`, JSON.stringify({
+  // 1. 기존의 realistic 워크로드 (DB 조회 + CPU 부하)
+  const realisticRes = http.post(`${BASE_URL}/api/workload/realistic`, JSON.stringify({
     durationMs: 800,
     cpuPercent: 40
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
 
-  check(res, {
+  check(realisticRes, {
     'realistic load status is 200': (r) => r.status === 200,
   });
 
-  // 추가 DB 조회
-  const statuses = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];
-  const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-  const dbRes = http.get(`${BASE_URL}/api/workload/db/status/${randomStatus}`);
+  // 2. '주문 처리' 워크로드 추가 (DB Read & Write)
+  const customerNames = [
+      "김철수", "이영희", "박민수", "최지원", "정현우",
+      "강서연", "윤태영", "임수진", "한지훈", "오민지"
+  ];
+  const randomCustomer = customerNames[Math.floor(Math.random() * customerNames.length)];
 
-  check(dbRes, {
-    'db status query is 200': (r) => r.status === 200,
+  const processRes = http.post(`${BASE_URL}/api/workload/process-order`, JSON.stringify({
+    customerName: randomCustomer
+  }), {
+    headers: { 'Content-Type': 'application/json' },
   });
+
+  check(processRes, {
+    'process order status is 200': (r) => r.status === 200,
+  });
+
 
   sleep(0.8);
 }

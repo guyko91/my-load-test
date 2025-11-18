@@ -27,7 +27,6 @@ public class K6ControlServiceImpl implements K6ControlService {
     private final Map<String, String> lastTestResult = new ConcurrentHashMap<>();
     private final String dockerCommand;
     private final String baseUrl;
-    private final String hostProjectPath;
     private final String networkName;
 
     public K6ControlServiceImpl(@Value("${k6.base-url:http://app:28080}") String baseUrl,
@@ -35,18 +34,9 @@ public class K6ControlServiceImpl implements K6ControlService {
         this.baseUrl = baseUrl;
         this.networkName = networkName;
         this.dockerCommand = findDockerCommand();
-        
-        // HOST_PROJECT_PATH는 docker-compose.yml에서 주입됩니다.
-        String projectPath = System.getenv("HOST_PROJECT_PATH");
-        if (projectPath == null || projectPath.isBlank()) {
-            log.warn("HOST_PROJECT_PATH environment variable is not set. Using '.' as default. This may cause issues with volume mounts.");
-            this.hostProjectPath = ".";
-        } else {
-            this.hostProjectPath = projectPath;
-        }
-        
-        log.info("K6ControlService initialized. Docker: {}, Base URL: {}, Host Project Path: {}, Network: {}", 
-                 dockerCommand, baseUrl, hostProjectPath, networkName);
+
+        log.info("K6ControlService initialized. Docker: {}, Base URL: {}, Network: {}",
+                 dockerCommand, baseUrl, networkName);
     }
 
     private String findDockerCommand() {
@@ -84,7 +74,7 @@ public class K6ControlServiceImpl implements K6ControlService {
             command.add("--network");
             command.add(networkName);
             command.add("-v");
-            command.add(new File(hostProjectPath, "k6").getAbsolutePath() + ":/scripts");
+            command.add("/host-k6:/scripts:ro");
             command.add("-e");
             command.add("SCENARIO=" + scenario);
             command.add("-e");
@@ -133,7 +123,7 @@ public class K6ControlServiceImpl implements K6ControlService {
             command.add("--network");
             command.add(networkName);
             command.add("-v");
-            command.add(new File(hostProjectPath, "k6").getAbsolutePath() + ":/scripts");
+            command.add("/host-k6:/scripts:ro");
             command.add("-e");
             command.add("SCENARIO=" + scenarioName);
             command.add("-e");

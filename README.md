@@ -1,55 +1,85 @@
-# 🚀 Quick Start Guide
+# 🚀 Load Test Toy
 
-이 가이드는 `docker-compose`를 사용하여 전체 애플리케이션 스택(Oracle DB, DB Setup, App)을 한 번에 시작하는 방법을 안내합니다.
+Spring Boot 기반 부하 테스트 애플리케이션 - K6, Oracle DB, OpenTelemetry 통합
 
 ## 📌 필수 요구사항
 
 - ✅ Docker Desktop (Mac, Windows) 또는 Docker Engine (Linux)
-- ✅ `aws-opentelemetry-agent.jar` 파일이 프로젝트 루트 디렉토리에 있어야 합니다.
+- ✅ Make (대부분의 시스템에 기본 설치)
+- ✅ `aws-opentelemetry-agent.jar` 파일 (프로젝트 루트에 위치)
 - ✅ 최소 8GB RAM (권장: 16GB)
 
-## 1단계: 애플리케이션 시작
+## ⚡ 빠른 시작 (3단계)
 
-프로젝트 루트 디렉토리에서 아래의 단일 명령어를 실행하세요.
+### 1️⃣ 처음 실행하는 경우
 
 ```bash
-# 모든 서비스를 빌드하고 백그라운드에서 시작합니다.
-docker-compose up --build -d
+# 초기 설정 + 전체 시작 (자동 DOCKER_GID 감지)
+make init
 ```
 
-이 명령어는 다음 작업을 자동으로 수행합니다.
-1.  `oracle-db` 컨테이너를 시작하고 Health Check가 통과할 때까지 기다립니다.
-2.  `oracle-setup` 컨테이너가 실행되어 데이터베이스 사용자(`testuser`)를 생성합니다.
-3.  데이터베이스 설정이 완료되면 `app` 컨테이너가 OpenTelemetry 에이전트와 함께 시작됩니다.
-
-> **참고:** `docker-compose` v1을 사용하는 경우, `docker-compose build && docker-compose up -d` 명령어로 실행해야 할 수 있습니다.
-
-## 2단계: 대시보드 접속
-
-애플리케이션이 시작된 후, 브라우저에서 아래 주소로 접속하세요.
+### 2️⃣ 대시보드 접속
 
 ```
-http://localhost:28080/
+http://localhost:28080/dashboard
 ```
 
-### 대시보드에서 할 수 있는 것:
+### 3️⃣ 종료
 
-1.  **K6 Load Test 카드**
-    - 시나리오 선택, RPS, Duration, VUs 설정 후 "Start K6 Test" 버튼으로 테스트 시작
-2.  **Quick Tests (단시간)**
-    - 사전 정의된 시나리오를 원클릭으로 테스트
-3.  **Long Running Scenarios (장시간)**
-    - 실제 운영 환경과 유사한 장시간 부하 패턴 테스트
-4.  **상태 모니터링**
-    - K6 실행 상태, DB 주문 건수 등 실시간 확인
+```bash
+make down
+```
 
-## 3단계: 부하 테스트 실행
+## 🎯 주요 기능
 
-대시보드에서 원하는 테스트 시나리오의 "Start" 버튼을 클릭하세요. `app` 서비스가 동적으로 `k6` 컨테이너를 생성하고 실행하여 부하 테스트를 수행합니다. **더 이상 `docker compose run k6`와 같은 수동 명령어는 사용하지 않습니다.**
+- **K6 부하 테스트**: 웹 대시보드에서 원클릭 실행
+- **Oracle DB 통합**: 실제 데이터베이스 쿼리 부하 생성
+- **다양한 시나리오**: 단시간(2-5분) 및 장시간(2-8시간) 테스트
+- **OpenTelemetry**: AWS ADOT 기반 메트릭 수집 지원
 
-## 4단계: 수동 API 테스트 (선택)
+---
 
-`curl` 등을 사용하여 개별 API의 동작을 테스트할 수 있습니다.
+## 📚 상세 가이드
+
+### 자동화된 시작 프로세스
+
+`make up` 또는 `make init` 실행 시 다음이 자동으로 수행됩니다:
+
+1. **Docker GID 자동 감지** - 시스템에 맞는 Docker 소켓 권한 설정
+2. **Oracle DB 시작** - Health Check 통과 대기 (약 2-3분)
+3. **DB 사용자 생성** - `testuser`/`testpass` 자동 생성
+4. **Spring Boot 앱 시작** - OpenTelemetry 에이전트와 함께 실행
+5. **더미 데이터 생성** - 1000개의 주문 데이터 자동 생성
+
+### 대시보드 기능
+
+**URL**: http://localhost:28080/dashboard
+
+#### 1. K6 Load Test 제어
+- 시나리오 선택: realistic, cpu, db, mixed, high_burst
+- RPS, Duration, VUs 커스터마이징
+- 실시간 테스트 시작/중지
+
+#### 2. Quick Tests (단시간 2-5분)
+- 🔥 **Quick CPU Test**: CPU 70%, 2분
+- 💾 **Quick DB Test**: DB 조회, 3분
+- ⚙️ **Realistic Load**: 혼합 부하, 5분
+- ⚡ **High Burst**: 고부하, 3분
+
+#### 3. Long Running Scenarios (장시간 2-8시간)
+- 📅 **Daily Pattern**: 8시간 - 일반 하루 패턴
+- 📈 **Gradual Increase**: 4시간 - 점진적 증가
+- ⚡ **Spike Pattern**: 3시간 - 트래픽 스파이크
+- 🛒 **Black Friday**: 6시간 - 대규모 이벤트
+- 🌙 **Night Batch**: 2시간 - 야간 배치
+- 💪 **Stress Test**: 2시간 - 최대 부하
+
+#### 4. 실시간 모니터링
+- K6 실행 상태
+- DB 연결 상태 및 주문 건수
+- 워크로드 실행 현황
+
+### 수동 API 테스트 (선택)
 
 ```bash
 # CPU 부하 생성
@@ -57,45 +87,227 @@ curl -X POST http://localhost:28080/api/workload/cpu \
   -H "Content-Type: application/json" \
   -d '{"durationMs": 2000, "cpuPercent": 70}'
 
-# DB 조회
+# DB 조회 부하
 curl http://localhost:28080/api/workload/db/query?limit=10
+
+# 현실적인 혼합 부하 (DB + CPU)
+curl -X POST http://localhost:28080/api/workload/realistic \
+  -H "Content-Type: application/json" \
+  -d '{"durationMs": 1000, "cpuPercent": 50}'
 
 # DB 상태 확인
 curl http://localhost:28080/api/workload/db/status
 ```
 
-## 5단계: 종료
+---
 
-모든 서비스를 중지하려면 아래 명령어를 실행하세요.
+## 🔧 트러블슈팅
 
+### ⚠️ 서비스 시작 실패
+
+**증상**: `make up` 실행 시 오류 발생
+
+**해결**:
 ```bash
-# 모든 컨테이너를 중지하고 네트워크를 제거합니다.
-docker-compose down
+# 1. 전체 정리
+make clean
 
-# DB 데이터까지 완전히 삭제하려면 -v 옵션을 추가합니다.
-docker-compose down -v
+# 2. 재시작
+make init
+```
+
+### ⚠️ Permission denied (Docker socket)
+
+**증상**: `permission denied while trying to connect to the Docker daemon socket`
+
+**원인**: Docker GID가 올바르게 설정되지 않음
+
+**해결**:
+```bash
+# Makefile이 자동으로 감지하므로 재실행
+make down
+make up
+
+# 또는 .env 파일 재생성
+make init
+```
+
+### ⚠️ 포트 충돌 (28080)
+
+**증상**: `port is already allocated`
+
+**해결**:
+```bash
+# 28080 포트 사용 중인 프로세스 확인
+lsof -i :28080
+
+# 해당 프로세스 종료 또는 포트 변경
+```
+
+### ⚠️ Oracle DB 연결 실패
+
+**증상**: `ORA-01017: invalid username/password`
+
+**해결**:
+```bash
+# 1. Oracle setup 로그 확인
+make logs oracle-setup
+
+# 2. 완전 초기화 및 재시작
+make down-v
+make up
+
+# 3. 수동 사용자 생성
+make shell-oracle
+# SQL> CREATE USER testuser IDENTIFIED BY testpass;
+# SQL> GRANT CONNECT, RESOURCE, DBA TO testuser;
+```
+
+### ⚠️ K6 스크립트를 찾을 수 없음
+
+**증상**: `open /scripts/dynamic.js: no such file or directory`
+
+**원인**: k6 디렉토리 볼륨 마운트 실패
+
+**해결**:
+```bash
+# k6 디렉토리 확인
+ls -la k6/
+
+# App 재시작
+make restart-app
+```
+
+### ⚠️ aws-opentelemetry-agent.jar 누락
+
+**증상**: Dockerfile 빌드 실패
+
+**해결**:
+```bash
+# 파일 다운로드 (예시)
+# wget https://github.com/aws-observability/aws-otel-java-instrumentation/releases/download/v1.x.x/aws-opentelemetry-agent.jar
+
+# 또는 빈 파일 생성 (테스트용)
+touch aws-opentelemetry-agent.jar
+```
+
+### 💡 완전 초기화
+
+모든 것을 처음부터 다시 시작:
+```bash
+# 1. 전체 정리
+make clean
+
+# 2. Docker 시스템 정리 (선택)
+docker system prune -a
+
+# 3. 재시작
+make init
+
+# 4. 상태 확인
+make status
 ```
 
 ---
 
-## 트러블슈팅
+## 🛠️ Make 명령어
 
-### ⚠️ `docker-compose up` 실행 시 오류 발생
+### 기본 명령어
 
-- **`aws-opentelemetry-agent.jar` 파일 누락:** `Dockerfile`에서 이 파일을 복사하도록 설정되어 있습니다. 프로젝트 루트에 파일이 있는지 확인하세요.
-- **포트 충돌 (28080 already in use):** 로컬 머신에서 28080 포트를 사용하는 다른 프로세스가 있는지 확인하고 종료하세요.
-- **`unknown flag: --build`:** `docker-compose` v1을 사용 중일 수 있습니다. `docker-compose build && docker-compose up -d`로 실행해 보세요.
+| 명령어 | 설명 |
+|--------|------|
+| `make help` | 사용 가능한 명령어 목록 및 도움말 |
+| `make init` | 초기 설정 + 서비스 시작 (처음 실행 시) |
+| `make up` | 서비스 시작 (자동 빌드 포함) |
+| `make down` | 서비스 중지 |
+| `make down-v` | 서비스 중지 + 볼륨 삭제 |
+| `make clean` | 전체 정리 (컨테이너 + 볼륨 + 이미지) |
 
-### ⚠️ Oracle DB 관련 오류
+### 모니터링 명령어
 
-`oracle-setup` 서비스 로그에 `ORA-`로 시작하는 오류가 표시되는 경우, DB가 완전히 준비되지 않았을 수 있습니다. `docker-compose down -v`로 모든 것을 초기화한 후 다시 시도해 보세요. `setup-oracle.sh` 스크립트에 재시도 로직이 포함되어 있어 대부분의 경우 자동으로 해결됩니다.
+| 명령어 | 설명 |
+|--------|------|
+| `make logs` | 전체 로그 (실시간) |
+| `make logs-app` | App 로그만 보기 |
+| `make ps` | 실행 중인 컨테이너 목록 |
+| `make status` | 상태 + 헬스체크 |
 
-## 주요 파일
+### 관리 명령어
 
-- **`docker-compose.yml`**: 전체 서비스(oracle-db, oracle-setup, app)를 정의하고 조율합니다.
-- **`Dockerfile`**: `app` 서비스의 Docker 이미지를 빌드하고, OpenTelemetry 에이전트를 포함시킵니다.
-- **`setup-oracle.sh`**: `oracle-setup` 서비스에 의해 실행되어 DB 사용자를 설정합니다.
-- **`K6ControlServiceImpl.java`**: 대시보드의 요청에 따라 `docker run` 명령어로 `k6` 컨테이너를 동적으로 생성하고 실행하는 핵심 로직을 담고 있습니다.
-- **`k6/*.js`**: `k6`가 실행할 부하 테스트 시나리오 스크립트입니다.
+| 명령어 | 설명 |
+|--------|------|
+| `make restart` | 전체 재시작 |
+| `make restart-app` | App만 재시작 |
+| `make build` | 이미지 빌드만 |
+| `make rebuild` | 전체 재빌드 + 재시작 |
+
+### 디버깅 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `make shell-app` | App 컨테이너 Bash 쉘 |
+| `make shell-oracle` | Oracle SQL*Plus 접속 |
+
+---
+
+## 🏗️ 아키텍처
+
+```
+┌──────────────────────────────────────────────────────┐
+│              Docker Compose 환경                      │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
+│  │  Oracle DB   │  │  Spring Boot │  │    K6     │ │
+│  │  (XE 21.3)   │  │  App (Root)  │  │  (동적)   │ │
+│  │  :1521       │  │  :28080      │  │  실행     │ │
+│  └──────┬───────┘  └──────┬───────┘  └─────▲─────┘ │
+│         │                 │                 │        │
+│         └─────────────────┴─────────────────┘        │
+│              load-test-net (bridge)                  │
+└──────────────────────────────────────────────────────┘
+```
+
+### 컴포넌트
+
+- **Oracle DB**: 실제 데이터베이스 쿼리 부하 생성용
+- **Spring Boot App**: 부하 제어 + K6 오케스트레이션
+- **K6**: Grafana K6 - 동적으로 생성/실행되는 부하 생성기
+- **OpenTelemetry**: AWS ADOT 기반 메트릭 수집 (옵션)
+
+---
+
+## 🔐 보안 개선사항
+
+- ✅ **Non-root 실행**: App이 appuser(UID:1000)로 실행
+- ✅ **최소 권한**: Docker 그룹만 추가 (group_add)
+- ✅ **Read-only 볼륨**: K6 스크립트는 읽기 전용
+- ✅ **격리된 네트워크**: load-test-net 전용 브리지 네트워크
+- ✅ **자동 GID 감지**: 시스템별 Docker socket 권한 자동 설정
+
+---
+
+## 🎓 기술 스택
+
+| 카테고리 | 기술 |
+|---------|------|
+| **Backend** | Spring Boot 3.5.7, Java 21 |
+| **Database** | Oracle XE 21.3.0 |
+| **Load Testing** | Grafana K6 (latest) |
+| **Observability** | AWS ADOT, OpenTelemetry Java Agent |
+| **Container** | Docker, Docker Compose V2 |
+| **Orchestration** | Makefile |
+
+---
+
+## 📝 주요 파일
+
+- **`Makefile`**: 자동화된 명령어 정의
+- **`docker-compose.yml`**: 전체 서비스 오케스트레이션
+- **`Dockerfile`**: Spring Boot App 이미지 빌드
+- **`setup-oracle.sh`**: Oracle DB 사용자 자동 생성
+- **`K6ControlServiceImpl.java`**: K6 컨테이너 동적 실행 로직
+- **`k6/dynamic.js`**: 단시간 시나리오 (2-5분)
+- **`k6/long-scenarios.js`**: 장시간 시나리오 (2-8시간)
 
 **Happy Load Testing! 🚀**

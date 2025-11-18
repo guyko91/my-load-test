@@ -1,0 +1,7 @@
+.git
+.gitignore
+*.md
+.env
+.env.example
+docker-compose.yml
+load-test-toy-deploy.tar.gz

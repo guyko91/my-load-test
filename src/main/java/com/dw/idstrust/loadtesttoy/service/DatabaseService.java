@@ -4,6 +4,7 @@ import com.dw.idstrust.loadtesttoy.entity.Order;
 import com.dw.idstrust.loadtesttoy.repository.OrderRepository;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.PostConstruct;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -63,8 +64,8 @@ public class DatabaseService {
         long count = orderRepository.count();
         if (count == 0) {
             log.info("Initializing dummy data...");
-            createDummyOrders(1000);
-            log.info("Dummy data initialization completed: {} orders created", 1000);
+            createDummyOrders(100000);
+            log.info("Dummy data initialization completed: {} orders created", 100000);
         } else {
             log.info("Database already contains {} orders, skipping initialization", count);
         }
@@ -155,5 +156,17 @@ public class DatabaseService {
             return ((HikariDataSource) dataSource).getMaximumPoolSize();
         }
         return -1; // Not a Hikari pool
+    }
+
+    @Transactional
+    public boolean processRecentOrder(String customerName) {
+        Optional<Order> recentOrder = orderRepository.findTopByCustomerNameAndStatusOrderByOrderDateDesc(customerName, "PENDING");
+        if (recentOrder.isPresent()) {
+            Order order = recentOrder.get();
+            order.setStatus("CONFIRMED");
+            orderRepository.save(order);
+            return true;
+        }
+        return false;
     }
 }

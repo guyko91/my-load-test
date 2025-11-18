@@ -47,10 +47,9 @@ services:
       - "28080:28080"
     environment:
       - SPRING_PROFILES_ACTIVE=real
-      - HOST_PROJECT_PATH=${PWD}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    user: root
+      - ./k6:/host-k6:ro
     depends_on:
       oracle-setup:
         condition: service_completed_successfully
