@@ -3,6 +3,7 @@ package com.dw.idstrust.loadtesttoy.service;
 import com.dw.idstrust.loadtesttoy.entity.Order;
 import com.dw.idstrust.loadtesttoy.repository.OrderRepository;
 import com.zaxxer.hikari.HikariDataSource;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
@@ -27,6 +29,7 @@ public class DatabaseService {
 
     private final OrderRepository orderRepository;
     private final DataSource dataSource;
+    private final MeterRegistry meterRegistry;
     private final Random random = new Random();
 
     private static final String[] CUSTOMER_NAMES = {
@@ -53,9 +56,10 @@ public class DatabaseService {
             "인천광역시 연수구 센트럴로 654"
     };
 
-    public DatabaseService(OrderRepository orderRepository, DataSource dataSource) {
+    public DatabaseService(OrderRepository orderRepository, DataSource dataSource, MeterRegistry meterRegistry) {
         this.orderRepository = orderRepository;
         this.dataSource = dataSource;
+        this.meterRegistry = meterRegistry;
     }
 
     @PostConstruct
@@ -102,33 +106,33 @@ public class DatabaseService {
     }
 
     // 다양한 조회 쿼리 (부하 생성용)
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public List<Order> findRandomOrders(int limit) {
         return orderRepository.findRandomOrders(limit);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public Page<Order> findOrdersWithPagination(int page, int size) {
         return orderRepository.findAll(PageRequest.of(page, size, Sort.by("orderDate").descending()));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public List<Order> findByStatus(String status) {
         return orderRepository.findByStatus(status);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public List<Order> findHighValueOrders(BigDecimal minPrice) {
         return orderRepository.findHighValueOrders(minPrice);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public List<Order> findOrdersByDateRange(LocalDateTime start, LocalDateTime end) {
         return orderRepository.findOrdersByDateRange(start, end);
     }
 
     // 복합 쿼리 부하 생성
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 10)
     public void executeComplexQuery() {
         // 여러 쿼리를 조합하여 DB 부하 생성
         findOrdersWithPagination(0, 50);
@@ -142,12 +146,19 @@ public class DatabaseService {
     }
 
     // --- Hikari Pool Control ---
-    public void updateMaxPoolSize(int size) {
-        if (dataSource instanceof HikariDataSource) {
+    public int updateMaxPoolSize(int size) {
+        if (dataSource instanceof HikariDataSource hikariDataSource) {
+            int minIdle = hikariDataSource.getMinimumIdle();
+            if (size < minIdle) {
+                log.warn("Requested max pool size ({}) is less than minimum idle ({}). Adjusting to {}.", size, minIdle, minIdle);
+                size = minIdle;
+            }
             log.info("Updating Hikari max pool size to: {}", size);
-            ((HikariDataSource) dataSource).setMaximumPoolSize(size);
+            hikariDataSource.setMaximumPoolSize(size);
+            return size;
         } else {
             log.warn("Datasource is not a HikariDataSource, cannot update max pool size.");
+            return -1;
         }
     }
 
@@ -158,7 +169,16 @@ public class DatabaseService {
         return -1; // Not a Hikari pool
     }
 
-    @Transactional
+    public Map<String, Number> getPoolStatus() {
+        return Map.of(
+                "active", meterRegistry.get("hikaricp.connections.active").gauge().value(),
+                "idle", meterRegistry.get("hikaricp.connections.idle").gauge().value(),
+                "pending", meterRegistry.get("hikaricp.connections.pending").gauge().value(),
+                "max", meterRegistry.get("hikaricp.connections.max").gauge().value()
+        );
+    }
+
+    @Transactional(timeout = 10)
     public boolean processRecentOrder(String customerName) {
         Optional<Order> recentOrder = orderRepository.findTopByCustomerNameAndStatusOrderByOrderDateDesc(customerName, "PENDING");
         if (recentOrder.isPresent()) {

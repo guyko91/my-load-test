@@ -130,7 +130,10 @@ public class LoadGeneratorService {
 
     public void executeMemoryWorkload(int sizeInMb, int durationInMs) {
         log.info("Triggering memory workload: {} MB for {} ms", sizeInMb, durationInMs);
-        new Thread(() -> {
+        AtomicBoolean running = new AtomicBoolean(true);
+        runningMap.put("memory-workload", running);
+
+        Future<?> future = workerPool.submit(() -> {
             try {
                 List<byte[]> memoryHog = new CopyOnWriteArrayList<>();
                 long sizeInBytes = (long) sizeInMb * 1024 * 1024;
@@ -156,13 +159,19 @@ public class LoadGeneratorService {
                 // The memory will be released automatically when the thread finishes
                 // and 'memoryHog' goes out of scope, allowing the GC to reclaim it.
                 log.info("Releasing ~{} MB of memory.", sizeInMb);
+                running.set(false);
+                runningMap.remove("memory-workload");
             }
-        }).start();
+        });
+        activeTasks.add(future);
     }
 
     public void executeCpuAndMemoryWorkload(int cpuPercent, int sizeInMb, int durationInMs) {
         log.info("Triggering CPU+Memory workload: {}% CPU, {} MB for {} ms", cpuPercent, sizeInMb, durationInMs);
-        new Thread(() -> {
+        AtomicBoolean running = new AtomicBoolean(true);
+        runningMap.put("cpu-memory-workload", running);
+
+        Future<?> future = workerPool.submit(() -> {
             List<byte[]> memoryHog = new CopyOnWriteArrayList<>();
             try {
                 // 1. Allocate Memory
@@ -188,7 +197,10 @@ public class LoadGeneratorService {
                 // 3. Release memory
                 log.info("Releasing ~{} MB of memory from combined workload.", sizeInMb);
                 memoryHog.clear();
+                running.set(false);
+                runningMap.remove("cpu-memory-workload");
             }
-        }).start();
+        });
+        activeTasks.add(future);
     }
 }

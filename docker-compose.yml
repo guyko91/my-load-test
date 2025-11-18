@@ -47,6 +47,7 @@ services:
       - "0.0.0.0:28080:28080"
     environment:
       - SPRING_PROFILES_ACTIVE=real
+      - JAVA_OPTS=-Xmx1g
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./k6:/host-k6:ro

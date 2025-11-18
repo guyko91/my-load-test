@@ -178,8 +178,13 @@ public class WorkloadController {
         if (maxPoolSize == null || maxPoolSize < 1) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid maxPoolSize"));
         }
-        databaseService.updateMaxPoolSize(maxPoolSize);
-        return ResponseEntity.ok(Map.of("status", "updated", "maxPoolSize", maxPoolSize));
+        int newSize = databaseService.updateMaxPoolSize(maxPoolSize);
+
+        if (newSize < 0) {
+            return ResponseEntity.status(500).body(Map.of("error", "Not a HikariDataSource"));
+        }
+
+        return ResponseEntity.ok(Map.of("status", "updated", "maxPoolSize", newSize));
     }
 
     // '주문 처리' 현실적인 시나리오
@@ -196,6 +201,23 @@ public class WorkloadController {
                 "status", "completed",
                 "customerName", customerName,
                 "processed", processed
+        ));
+    }
+
+    // CPU + Memory 테스트
+    @PostMapping("/cpu-memory")
+    public ResponseEntity<?> cpuMemoryTest(@RequestBody Map<String, Object> request) {
+        int cpuPercent = (int) request.getOrDefault("cpuPercent", 50);
+        int sizeMb = (int) request.getOrDefault("sizeMb", 768);
+        int durationMs = (int) request.getOrDefault("durationMs", 60000);
+
+        loadService.executeCpuAndMemoryWorkload(cpuPercent, sizeMb, durationMs);
+
+        return ResponseEntity.ok(Map.of(
+                "status", "started",
+                "cpuPercent", cpuPercent,
+                "sizeMb", sizeMb,
+                "durationMs", durationMs
         ));
     }
 }

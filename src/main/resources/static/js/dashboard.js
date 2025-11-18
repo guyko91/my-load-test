@@ -1,406 +1,326 @@
 // Toast Notification Function
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-
     container.appendChild(toast);
-
-    // Show the toast
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 100);
-
-    // Hide and remove the toast after 4 seconds
+    setTimeout(() => toast.classList.add('show'), 100);
     setTimeout(() => {
         toast.classList.remove('show');
-        toast.classList.add('hide');
         toast.addEventListener('transitionend', () => toast.remove());
     }, 4000);
 }
 
-
-// Dashboard State
-let isK6Running = false;
-let refreshInterval;
-
-// DOM Elements
-const startK6Btn = document.getElementById('start-k6-btn');
-const stopK6Btn = document.getElementById('stop-k6-btn');
-const stopAllBtn = document.getElementById('stop-all-btn');
-const refreshDbBtn = document.getElementById('refresh-db-btn');
-
-const scenarioSelect = document.getElementById('scenario-select');
-const rpsInput = document.getElementById('rps-input');
-const durationInput = document.getElementById('duration-input');
-const vusInput = document.getElementById('vus-input');
-
-const k6StatusBadge = document.getElementById('k6-status-badge');
-const k6StatusText = document.getElementById('k6-status-text');
-const appStatusBadge = document.getElementById('app-status-badge');
-const workloadStatusText = document.getElementById('workload-status-text');
-const orderCountEl = document.getElementById('order-count');
-const poolSizeValueEl = document.getElementById('pool-size-value');
-const poolSizeInput = document.getElementById('pool-size-input');
-const setPoolSizeBtn = document.getElementById('set-pool-size-btn');
-
-const k6ResultDiv = document.getElementById('k6-result');
-const k6ResultInfo = document.getElementById('k6-result-info');
-
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    refreshAllStatus();
-    startAutoRefresh();
-
-    startK6Btn.addEventListener('click', startK6Test);
-    stopK6Btn.addEventListener('click', stopK6Test);
-    stopAllBtn.addEventListener('click', stopAllWorkloads);
-    refreshDbBtn.addEventListener('click', () => {
-        refreshDatabaseStatus();
-        refreshPoolSize();
-        showToast('Database status refreshed!', 'info');
-    });
-    setPoolSizeBtn.addEventListener('click', setPoolSize);
-});
-
-// Auto Refresh (every 3 seconds)
-function startAutoRefresh() {
-    refreshInterval = setInterval(() => {
-        refreshAllStatus();
-    }, 3000);
-}
-
-function stopAutoRefresh() {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-    }
-}
-
-// Refresh All Status
-async function refreshAllStatus() {
-    await Promise.all([
-        refreshK6Status(),
-        refreshAppStatus(),
-        refreshDatabaseStatus(),
-        refreshPoolSize()
-    ]);
-}
-
-// K6 Status
-async function refreshK6Status() {
-    try {
-        const res = await fetch('/api/dashboard/k6/status');
-        const data = await res.json();
-
-        isK6Running = data.running;
-
-        if (data.running) {
-            k6StatusBadge.textContent = 'RUNNING';
-            k6StatusBadge.className = 'status-badge status-running';
-            k6StatusText.textContent = 'Running';
-
-            startK6Btn.style.display = 'none';
-            stopK6Btn.style.display = 'block';
-
-            if (data.lastTest) {
-                k6ResultDiv.classList.add('show');
-                k6ResultInfo.textContent = `Scenario: ${data.lastTest.scenario || 'N/A'}, Status: ${data.lastTest.status || 'N/A'}`;
-            }
-        } else {
-            k6StatusBadge.textContent = 'IDLE';
-            k6StatusBadge.className = 'status-badge status-idle';
-            k6StatusText.textContent = 'Stopped';
-
-            startK6Btn.style.display = 'block';
-            stopK6Btn.style.display = 'none';
-
-            if (data.lastTest && data.lastTest.status) {
-                k6ResultDiv.classList.add('show');
-                const status = data.lastTest.status;
-                const scenario = data.lastTest.scenario || 'N/A';
-                k6ResultInfo.textContent = `Last Test: ${scenario}, Status: ${status}`;
-            }
-        }
-    } catch (error) {
-        console.error('Failed to refresh K6 status:', error);
-    }
-}
-
-// App Status
-async function refreshAppStatus() {
-    try {
-        const res = await fetch('/api/dashboard/app/status');
-        const data = await res.json();
-
-        if (data.running) {
-            appStatusBadge.textContent = 'RUNNING';
-            appStatusBadge.className = 'status-badge status-running';
-            workloadStatusText.textContent = 'Active';
-        } else {
-            appStatusBadge.textContent = 'IDLE';
-            appStatusBadge.className = 'status-badge status-idle';
-            workloadStatusText.textContent = 'Idle';
-        }
-    } catch (error) {
-        console.error('Failed to refresh app status:', error);
-    }
-}
-
-// Database Status
-async function refreshDatabaseStatus() {
-    try {
-        const res = await fetch('/api/dashboard/db/status');
-        const data = await res.json();
-
-        if (data.orderCount !== undefined) {
-            orderCountEl.textContent = data.orderCount.toLocaleString();
-        }
-    } catch (error) {
-        console.error('Failed to refresh database status:', error);
-    }
-}
-
-// DB Pool Size
-async function refreshPoolSize() {
-    try {
-        const res = await fetch('/api/workload/db/pool-size');
-        const data = await res.json();
-        if (data.maxPoolSize !== undefined && data.maxPoolSize > 0) {
-            poolSizeValueEl.textContent = data.maxPoolSize;
-            poolSizeInput.value = data.maxPoolSize;
-        } else {
-            poolSizeValueEl.textContent = 'N/A';
-        }
-    } catch (error) {
-        console.error('Failed to refresh pool size:', error);
-        poolSizeValueEl.textContent = 'Error';
-    }
-}
-
-async function setPoolSize() {
-    const newSize = parseInt(poolSizeInput.value);
-    if (isNaN(newSize) || newSize < 1) {
-        showToast('Please enter a valid pool size.', 'error');
-        return;
-    }
-
-    setPoolSizeBtn.disabled = true;
-    try {
-        const res = await fetch('/api/workload/db/pool-size', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ maxPoolSize: newSize })
-        });
-
-        if (res.ok) {
-            showToast(`Max pool size set to ${newSize}`, 'success');
-            await refreshPoolSize();
-        } else {
-            showToast('Failed to set pool size.', 'error');
-        }
-    } catch (error) {
-        console.error('Failed to set pool size:', error);
-        showToast('An error occurred while setting pool size.', 'error');
-    } finally {
-        setPoolSizeBtn.disabled = false;
-    }
-}
-
-// Start K6 Test
-async function startK6Test() {
-    const scenario = scenarioSelect.value;
-    const rps = parseInt(rpsInput.value);
-    const duration = parseInt(durationInput.value);
-    const vus = parseInt(vusInput.value);
-
-    if (!scenario || rps < 1 || duration < 1 || vus < 1) {
-        showToast('Please enter valid values for the test.', 'error');
-        return;
-    }
-
-    startK6Btn.disabled = true;
-
-    try {
-        const res = await fetch('/api/dashboard/k6/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenario, rps, duration, vus })
-        });
-
-        if (res.ok) {
-            showToast(`K6 test started: ${scenario}`, 'success');
-            await refreshK6Status();
-        } else {
-            showToast('Failed to start K6 test.', 'error');
-        }
-    } catch (error) {
-        console.error('Failed to start K6:', error);
-        showToast('An error occurred while starting the K6 test.', 'error');
-    } finally {
-        startK6Btn.disabled = false;
-    }
-}
-
-// Stop K6 Test
-async function stopK6Test() {
-    if (!confirm('Are you sure you want to stop the K6 test?')) {
-        return;
-    }
-
-    stopK6Btn.disabled = true;
-
-    try {
-        const res = await fetch('/api/dashboard/k6/stop', {
-            method: 'POST'
-        });
-
-        if (res.ok) {
-            showToast('K6 test stopped.', 'info');
-            await refreshK6Status();
-        } else {
-            showToast('Failed to stop K6 test.', 'error');
-        }
-    } catch (error) {
-        console.error('Failed to stop K6:', error);
-        showToast('An error occurred while stopping the K6 test.', 'error');
-    } finally {
-        stopK6Btn.disabled = false;
-    }
-}
-
-// Stop All Workloads
-async function stopAllWorkloads() {
-    if (!confirm('Are you sure you want to stop all workloads?')) {
-        return;
-    }
-
-    stopAllBtn.disabled = true;
-
-    try {
-        const res = await fetch('/api/load/stop', {
-            method: 'POST'
-        });
-
-        if (res.ok) {
-            showToast('All workloads have been stopped.', 'info');
-            await refreshAppStatus();
-        } else {
-            showToast('Failed to stop workloads.', 'error');
-        }
-    } catch (error) {
-        console.error('Failed to stop workloads:', error);
-        showToast('An error occurred while stopping workloads.', 'error');
-    } finally {
-        stopAllBtn.disabled = false;
-    }
-}
-
-// Quick Test Function (called from HTML)
-async function quickTest(scenario, rps, duration, vus) {
-    if (isK6Running) {
-        showToast('A K6 test is already running.', 'info');
-        return;
-    }
-
-    if (!confirm(`Start Quick Test?\nScenario: ${scenario}, RPS: ${rps}, Duration: ${duration}min, VUs: ${vus}`)) {
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/dashboard/k6/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenario, rps, duration, vus })
-        });
-
-        if (res.ok) {
-            showToast('Quick Test started!', 'success');
-            await refreshK6Status();
-        } else {
-            showToast('Failed to start Quick Test.', 'error');
-        }
-    } catch (error) {
-        console.error('Failed to start quick test:', error);
-        showToast('An error occurred while starting the Quick Test.', 'error');
-    }
-}
-
-// Long Running Scenario Function (called from HTML)
-async function longScenario(scenarioName) {
-    if (isK6Running) {
-        showToast('A K6 test is already running.', 'info');
-        return;
-    }
-
-    const scenarios = {
-        'daily_pattern': { name: 'Daily Pattern', duration: '8 hours', desc: 'Simulates a typical business day (dawn→morning→lunch→afternoon→evening)' },
-        'gradual_increase': { name: 'Gradual Increase', duration: '4 hours', desc: 'Gradually increases load (5 VUs → 100 VUs)' },
-        'spike_pattern': { name: 'Spike Pattern', duration: '3 hours', desc: 'Generates 3 sudden traffic spikes' },
-        'black_friday': { name: 'Black Friday', duration: '6 hours', desc: 'Simulates a large-scale event (up to 200 VUs)' },
-        'night_batch': { name: 'Night Batch', duration: '2 hours', desc: 'Simulates a nightly batch job pattern' },
-        'stress_test': { name: 'Stress Test', duration: '2 hours', desc: 'Gradual stress test (up to 300 VUs)' }
+    // --- Element Selectors ---
+    const elements = {
+        // Baseline
+        baseline: {
+            statusBadge: document.getElementById('baseline-status-badge'),
+            resultDiv: document.getElementById('baseline-result'),
+            resultInfo: document.getElementById('baseline-result-info'),
+            rpsInput: document.getElementById('baseline-rps-input'),
+            vusInput: document.getElementById('baseline-vus-input'),
+            scenarioInput: document.getElementById('baseline-scenario-select'),
+            startBtn: document.getElementById('start-baseline-btn'),
+        },
+        // Scenario
+        scenario: {
+            statusBadge: document.getElementById('scenario-status-badge'),
+            resultDiv: document.getElementById('scenario-result'),
+            resultInfo: document.getElementById('scenario-result-info'),
+            select: document.getElementById('scenario-select'),
+            rpsInput: document.getElementById('scenario-rps-input'),
+            durationInput: document.getElementById('scenario-duration-input'),
+            vusInput: document.getElementById('scenario-vus-input'),
+            startBtn: document.getElementById('start-scenario-btn'),
+        },
+        // Global
+        global: {
+            stopAllBtn: document.getElementById('stop-all-k6-btn'),
+            appStatusBadge: document.getElementById('app-status-badge'),
+            orderCount: document.getElementById('order-count'),
+        },
+        // DB Pool
+        dbPool: {
+            value: document.getElementById('pool-size-value'),
+            input: document.getElementById('pool-size-input'),
+            setBtn: document.getElementById('set-pool-size-btn'),
+            activeValue: document.getElementById('pool-active-value'),
+            idleValue: document.getElementById('pool-idle-value'),
+            pendingValue: document.getElementById('pool-pending-value'),
+        },
+        // Long Scenarios
+        longScenarioGrid: document.getElementById('long-scenario-grid'),
     };
 
-    const scenario = scenarios[scenarioName];
-    if (!scenario) {
-        showToast('Invalid scenario selected.', 'error');
-        return;
+    // --- Event Listeners ---
+    elements.baseline.startBtn.addEventListener('click', startBaselineTest);
+    elements.scenario.startBtn.addEventListener('click', startScenarioTest);
+    elements.global.stopAllBtn.addEventListener('click', stopAllK6Tests);
+    elements.dbPool.setBtn.addEventListener('click', setPoolSize);
+
+    // --- Initialization ---
+    populateLongScenarios();
+    startAutoRefresh();
+
+    // --- Functions ---
+    function startAutoRefresh() {
+        refreshAllStatus(); // Initial call
+        setInterval(refreshAllStatus, 3000);
     }
 
-    const confirmMsg = `Start ${scenario.name}?\n\n` +
-                      `⏱️ Estimated Duration: ${scenario.duration}\n` +
-                      `📋 Description: ${scenario.desc}\n\n` +
-                      `⚠️ This is a long-running test. Monitor system resources.`;
-
-    if (!confirm(confirmMsg)) {
-        return;
+    async function refreshAllStatus() {
+        await Promise.all([
+            refreshK6Status(),
+            refreshAppStatus(),
+            refreshDatabaseStatus(),
+            refreshPoolSize(),
+            refreshPoolLiveStatus()
+        ]);
     }
 
-    try {
-        const res = await fetch('/api/dashboard/k6/long-scenario', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenario: scenarioName })
-        });
+    async function refreshK6Status() {
+        try {
+            const res = await fetch('/api/dashboard/k6/status');
+            const data = await res.json();
 
-        if (res.ok) {
-            showToast(`${scenario.name} started!`, 'success');
-            await refreshK6Status();
-        } else {
-            showToast('Failed to start long-running test.', 'error');
+            const runningBaseline = data.runningTests.find(t => t.type === 'baseline');
+            const runningScenario = data.runningTests.find(t => t.type === 'scenario');
+
+            updateTestCardUI('baseline', runningBaseline, data.lastFinishedTests.baseline);
+            updateTestCardUI('scenario', runningScenario, data.lastFinishedTests.scenario);
+
+            const anyTestRunning = runningBaseline || runningScenario;
+            elements.global.stopAllBtn.style.display = anyTestRunning ? 'block' : 'none';
+
+        } catch (error) {
+            console.error('Failed to refresh K6 status:', error);
         }
-    } catch (error) {
-        console.error('Failed to start long scenario:', error);
-        showToast('An error occurred while starting the long-running test.', 'error');
-    }
-}
-
-// CPU + Memory Quick Test
-async function quickCpuMemoryTest() {
-    if (!confirm(`Start CPU + Memory Test?\n\nCPU: 50%\nMemory: 256MB\nDuration: 1 minute`)) {
-        return;
     }
 
-    try {
-        const res = await fetch('/api/workload/cpu-memory', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                cpuPercent: 50,
-                sizeMb: 256,
-                durationMs: 60000
-            })
-        });
-
-        if (res.ok) {
-            showToast('CPU + Memory test started!', 'success');
-            await refreshAppStatus();
+    function updateTestCardUI(type, runningTest, lastFinishedTest) {
+        const ui = elements[type];
+        if (runningTest) {
+            ui.statusBadge.textContent = 'RUNNING';
+            ui.statusBadge.className = 'status-badge status-running';
+            ui.startBtn.disabled = true;
+            ui.resultDiv.classList.add('show');
+            ui.resultInfo.textContent = `Scenario: ${runningTest.scenario}, Status: ${runningTest.status}`;
         } else {
-            showToast('Failed to start CPU + Memory test.', 'error');
+            ui.statusBadge.textContent = 'IDLE';
+            ui.statusBadge.className = 'status-badge status-idle';
+            ui.startBtn.disabled = false;
+            if (lastFinishedTest) {
+                ui.resultDiv.classList.add('show');
+                ui.resultInfo.textContent = `Last: ${lastFinishedTest.scenario}, Status: ${lastFinishedTest.status} (Code: ${lastFinishedTest.exitCode})`;
+            } else {
+                ui.resultDiv.classList.remove('show');
+            }
         }
-    } catch (error) {
-        console.error('Failed to start CPU + Memory test:', error);
-        showToast('An error occurred while starting the CPU + Memory test.', 'error');
     }
-}
+
+    async function startBaselineTest() {
+        const rps = parseInt(elements.baseline.rpsInput.value);
+        const vus = parseInt(elements.baseline.vusInput.value);
+        const scenario = elements.baseline.scenarioInput.value;
+
+        if (rps < 1 || vus < 1) {
+            showToast('Please enter valid values for Baseline test.', 'error');
+            return;
+        }
+
+        const payload = {
+            testType: 'baseline',
+            scenario: scenario,
+            rps: rps,
+            vus: vus,
+            duration: 99999, // "Infinite" duration
+            script: 'dynamic.js'
+        };
+        await startTest(payload, 'baseline');
+    }
+
+    async function startScenarioTest() {
+        const rps = parseInt(elements.scenario.rpsInput.value);
+        const vus = parseInt(elements.scenario.vusInput.value);
+        const duration = parseInt(elements.scenario.durationInput.value);
+        const scenario = elements.scenario.select.value;
+
+        if (rps < 1 || vus < 1 || duration < 1) {
+            showToast('Please enter valid values for Scenario test.', 'error');
+            return;
+        }
+
+        const payload = {
+            testType: 'scenario',
+            scenario: scenario,
+            rps: rps,
+            vus: vus,
+            duration: duration,
+            script: 'dynamic.js'
+        };
+        await startTest(payload, 'scenario');
+    }
+
+    async function startTest(payload, type) {
+        const ui = elements[type];
+        ui.startBtn.disabled = true;
+        try {
+            const res = await fetch('/api/dashboard/k6/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} test started!`, 'success');
+                await refreshK6Status();
+            } else {
+                const errorData = await res.json();
+                showToast(`Failed to start test: ${errorData.message}`, 'error');
+            }
+        } catch (error) {
+            console.error(`Failed to start ${type} test:`, error);
+            showToast('An error occurred while starting the test.', 'error');
+        } finally {
+            // Re-enabling is handled by refreshK6Status
+        }
+    }
+
+    async function stopAllK6Tests() {
+        if (!confirm('Are you sure you want to stop ALL running K6 tests?')) return;
+        elements.global.stopAllBtn.disabled = true;
+        try {
+            const res = await fetch('/api/dashboard/k6/stop', { method: 'POST' });
+            if (res.ok) {
+                showToast('All K6 tests stopped.', 'info');
+                await refreshK6Status();
+            } else {
+                showToast('Failed to stop K6 tests.', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to stop K6 tests:', error);
+            showToast('An error occurred while stopping tests.', 'error');
+        } finally {
+            elements.global.stopAllBtn.disabled = false;
+        }
+    }
+
+    // --- Other Functions (unchanged or minor changes) ---
+    async function refreshAppStatus() {
+        try {
+            const res = await fetch('/api/dashboard/app/status');
+            const data = await res.json();
+            elements.global.appStatusBadge.textContent = data.running ? 'Active' : 'Idle';
+        } catch (error) {
+            console.error('Failed to refresh app status:', error);
+            elements.global.appStatusBadge.textContent = 'Error';
+        }
+    }
+
+    async function refreshDatabaseStatus() {
+        try {
+            const res = await fetch('/api/dashboard/db/status');
+            const data = await res.json();
+            if (data.orderCount !== undefined) {
+                elements.global.orderCount.textContent = data.orderCount.toLocaleString();
+            }
+        } catch (error) {
+            console.error('Failed to refresh database status:', error);
+        }
+    }
+
+    async function refreshPoolSize() {
+        try {
+            const res = await fetch('/api/workload/db/pool-size');
+            const data = await res.json();
+            if (data.maxPoolSize !== undefined && data.maxPoolSize > 0) {
+                elements.dbPool.value.textContent = data.maxPoolSize;
+                if (document.activeElement !== elements.dbPool.input) {
+                    elements.dbPool.input.value = data.maxPoolSize;
+                }
+            } else {
+                elements.dbPool.value.textContent = 'N/A';
+            }
+        } catch (error) {
+            console.error('Failed to refresh pool size:', error);
+            elements.dbPool.value.textContent = 'Error';
+        }
+    }
+
+    async function refreshPoolLiveStatus() {
+        try {
+            const res = await fetch('/api/dashboard/db/pool-status');
+            const data = await res.json();
+            elements.dbPool.activeValue.textContent = data.active ?? '-';
+            elements.dbPool.idleValue.textContent = data.idle ?? '-';
+            elements.dbPool.pendingValue.textContent = data.pending ?? '-';
+        } catch (error) {
+            console.error('Failed to refresh pool live status:', error);
+            elements.dbPool.activeValue.textContent = 'Err';
+            elements.dbPool.idleValue.textContent = 'Err';
+            elements.dbPool.pendingValue.textContent = 'Err';
+        }
+    }
+
+    async function setPoolSize() {
+        const newSize = parseInt(elements.dbPool.input.value);
+        if (isNaN(newSize) || newSize < 1) {
+            showToast('Please enter a valid pool size.', 'error');
+            return;
+        }
+        elements.dbPool.setBtn.disabled = true;
+        try {
+            const res = await fetch('/api/workload/db/pool-size', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ maxPoolSize: newSize })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                showToast(`Max pool size set to ${data.maxPoolSize}`, 'success');
+                await refreshPoolSize();
+            } else {
+                showToast('Failed to set pool size.', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to set pool size:', error);
+            showToast('An error occurred.', 'error');
+        } finally {
+            elements.dbPool.setBtn.disabled = false;
+        }
+    }
+
+    function populateLongScenarios() {
+        const scenarios = {
+            'daily_pattern': { name: '📅 Daily Pattern', desc: '8시간 - 일반 하루 패턴' },
+            'gradual_increase': { name: '📈 Gradual Increase', desc: '4시간 - 점진적 부하 증가' },
+            'spike_pattern': { name: '⚡ Spike Pattern', desc: '3시간 - 트래픽 스파이크' },
+            'black_friday': { name: '🛒 Black Friday', desc: '6시간 - 대규모 이벤트' },
+            'night_batch': { name: '🌙 Night Batch', desc: '2시간 - 야간 배치' },
+            'stress_test': { name: '💪 Stress Test', desc: '2시간 - 최대 부하' }
+        };
+        for (const key in scenarios) {
+            const scenario = scenarios[key];
+            const btn = document.createElement('div');
+            btn.className = 'quick-action-btn';
+            btn.innerHTML = `<div class="title">${scenario.name}</div><div class="desc">${scenario.desc}</div>`;
+            btn.onclick = () => startLongScenario(key);
+            elements.longScenarioGrid.appendChild(btn);
+        }
+    }
+
+    async function startLongScenario(scenarioName) {
+        const payload = {
+            testType: 'scenario',
+            scenario: scenarioName,
+            rps: 1, vus: 1, duration: 1, // These values are ignored by the long-scenario script
+            script: 'long-scenarios.js'
+        };
+        if (confirm(`Start Long Scenario: ${scenarioName}?`)) {
+            await startTest(payload, 'scenario');
+        }
+    }
+});

@@ -27,8 +27,8 @@ public class DashboardController {
     @GetMapping({"/", "/dashboard"})
     public String dashboard(Model model) {
         model.addAttribute("orderCount", databaseService.getOrderCount());
-        model.addAttribute("k6Running", k6Service.isK6Running());
         model.addAttribute("appRunning", loadService.isRunning());
+        // k6Running status is now fetched dynamically by the frontend
         return "dashboard";
     }
 
@@ -36,34 +36,33 @@ public class DashboardController {
     @PostMapping("/api/dashboard/k6/start")
     @ResponseBody
     public ResponseEntity<?> startK6(@RequestBody Map<String, Object> request) {
+        String testType = (String) request.getOrDefault("testType", "scenario"); // "baseline" or "scenario"
         String scenario = (String) request.getOrDefault("scenario", "realistic");
         int rps = (int) request.getOrDefault("rps", 10);
         int duration = (int) request.getOrDefault("duration", 5);
         int vus = (int) request.getOrDefault("vus", 20);
+        String scriptName = (String) request.getOrDefault("script", "dynamic.js");
 
-        k6Service.startK6Test(scenario, rps, duration, vus);
-        return ResponseEntity.ok(Map.of("status", "started"));
-    }
+        String testId = k6Service.startTest(testType, scenario, rps, duration, vus, scriptName);
 
-    @PostMapping("/api/dashboard/k6/long-scenario")
-    @ResponseBody
-    public ResponseEntity<?> startLongScenario(@RequestBody Map<String, Object> request) {
-        String scenario = (String) request.getOrDefault("scenario", "daily_pattern");
-        k6Service.startLongScenario(scenario);
-        return ResponseEntity.ok(Map.of("status", "started", "scenario", scenario));
+        if (testId != null) {
+            return ResponseEntity.ok(Map.of("status", "started", "testId", testId));
+        } else {
+            return ResponseEntity.status(409).body(Map.of("status", "conflict", "message", "A test of type '" + testType + "' is already running."));
+        }
     }
 
     @PostMapping("/api/dashboard/k6/stop")
     @ResponseBody
     public ResponseEntity<?> stopK6() {
-        k6Service.stopK6Test();
+        k6Service.stopAllTests();
         return ResponseEntity.ok(Map.of("status", "stopped"));
     }
 
     @GetMapping("/api/dashboard/k6/status")
     @ResponseBody
     public ResponseEntity<?> k6Status() {
-        return ResponseEntity.ok(k6Service.getK6Status());
+        return ResponseEntity.ok(k6Service.getStatus());
     }
 
     // Database Status API
@@ -76,6 +75,14 @@ public class DashboardController {
         ));
     }
 
+    @GetMapping("/api/dashboard/db/pool-status")
+    @ResponseBody
+    public ResponseEntity<?> dbPoolStatus() {
+        return ResponseEntity.ok(databaseService.getPoolStatus());
+    }
+
+
+
     // App Status API
     @GetMapping("/api/dashboard/app/status")
     @ResponseBody
@@ -85,4 +92,3 @@ public class DashboardController {
         ));
     }
 }
-

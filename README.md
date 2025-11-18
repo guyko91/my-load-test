@@ -51,6 +51,36 @@ make down
 4. **Spring Boot 앱 시작** - OpenTelemetry 에이전트와 함께 실행
 5. **더미 데이터 생성** - 1000개의 주문 데이터 자동 생성
 
+### JVM 메모리 설정
+
+애플리케이션의 JVM 최대 힙 메모리(Xmx)를 설정하여 메모리 스트레스 테스트를 수행하거나 특정 환경에 맞게 리소스를 제한할 수 있습니다.
+
+#### 1. 로컬 개발 환경 (Gradle `bootRun`)
+
+`./gradlew bootRun` 명령으로 애플리케이션을 실행할 때 JVM 메모리를 설정하려면, `build.gradle` 파일에 `bootRun` 태스크를 다음과 같이 추가합니다:
+
+```groovy
+bootRun {
+    jvmArgs = ['-Xmx1g'] // 예: 1GB로 설정
+}
+```
+
+#### 2. Docker 배포 환경 (Docker Compose)
+
+Docker Compose를 사용하여 애플리케이션을 배포할 때 JVM 메모리를 설정하려면, `docker-compose.yml` 파일의 `app` 서비스에 `JAVA_OPTS` 환경 변수를 추가합니다. `entrypoint.sh` 스크립트가 이 변수를 읽어 JVM 옵션으로 전달합니다.
+
+```yaml
+services:
+  app:
+    # ...
+    environment:
+      - SPRING_PROFILES_ACTIVE=real
+      - JAVA_OPTS=-Xmx1g # 예: 1GB로 설정
+    # ...
+```
+
+---
+
 ### 대시보드 기능
 
 **URL**: http://localhost:28080/dashboard

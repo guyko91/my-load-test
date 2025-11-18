@@ -67,7 +67,6 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 20,
     stages: [
-      { duration: '30m', target: 50 },   // 이벤트 시작 전
       { duration: '15m', target: 150 },  // 이벤트 시작 (급증)
       { duration: '1h', target: 200 },   // 최고 트래픽
       { duration: '1h', target: 180 },   // 높은 트래픽 유지
@@ -84,7 +83,6 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 5,
     stages: [
-      { duration: '10m', target: 5 },    // 준비
       { duration: '20m', target: 30 },   // 배치 작업 시작
       { duration: '40m', target: 50 },   // 배치 작업 피크
       { duration: '20m', target: 30 },   // 배치 작업 종료

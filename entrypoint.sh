@@ -29,5 +29,6 @@ echo "=================================================="
 # Switch to appuser and exec Java process
 # Using gosu to properly handle signals and make Java process PID 1
 exec gosu appuser java \
+$JAVA_OPTS \
 -javaagent:"$ADOT_AGENT" \
 -jar /app/app.jar
