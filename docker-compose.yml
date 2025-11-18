@@ -8,8 +8,8 @@ services:
       - ORACLE_PWD=OraclePassword123
       - ORACLE_CHARACTERSET=AL32UTF8
     ports:
-      - "1521:1521"
-      - "5500:5500"
+      - "0.0.0.0:1521:1521"
+      - "0.0.0.0:5500:5500"
     volumes:
       - oracle-data:/opt/oracle/oradata
       - ./docker/oracle-init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -44,7 +44,7 @@ services:
       no_cache: true
     container_name: load-test-app
     ports:
-      - "28080:28080"
+      - "0.0.0.0:28080:28080"
     environment:
       - SPRING_PROFILES_ACTIVE=real
     volumes:
