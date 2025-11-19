@@ -55,11 +55,17 @@ public class K6ControlServiceImpl implements K6ControlService {
 
     public K6ControlServiceImpl(@Value("${k6.base-url:http://app:28080}") String baseUrl,
                                 @Value("${k6.docker.network:load-test-net}") String networkName,
+                                @Value("${k6.scripts.path.on.host:}") String scriptsPathOnHost,
                                 @Value("${k6.scripts.path:}") String scriptsPath) {
         this.baseUrl = baseUrl;
         this.networkName = networkName;
         this.dockerCommand = findDockerCommand();
-        this.k6ScriptsPath = determineScriptsPath(scriptsPath);
+
+        if (scriptsPathOnHost != null && !scriptsPathOnHost.isEmpty()) {
+            this.k6ScriptsPath = scriptsPathOnHost;
+        } else {
+            this.k6ScriptsPath = determineScriptsPath(scriptsPath);
+        }
 
         log.info("K6ControlService initialized. Docker: {}, Base URL: {}, Network: {}, Scripts: {}",
                 dockerCommand, baseUrl, networkName, k6ScriptsPath);
@@ -80,6 +86,7 @@ public class K6ControlServiceImpl implements K6ControlService {
             log.info("Starting K6 test [ID: {}] with command: {}", testId, String.join(" ", command));
 
             ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true); // 표준 에러를 표준 출력으로 리다이렉트
             Process process = pb.start();
 
             K6TestInstance instance = new K6TestInstance(testId, testType, scenario, process);

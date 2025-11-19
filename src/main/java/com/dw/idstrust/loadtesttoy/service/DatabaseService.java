@@ -62,7 +62,7 @@ public class DatabaseService {
         this.meterRegistry = meterRegistry;
     }
 
-    @PostConstruct
+    // @PostConstruct
     @Transactional
     public void initDummyData() {
         long count = orderRepository.count();

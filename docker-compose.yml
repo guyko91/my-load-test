@@ -48,6 +48,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=real
       - JAVA_OPTS=-Xmx1g
+      - K6_SCRIPTS_PATH_ON_HOST=${PWD}/k6
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./k6:/host-k6:ro
