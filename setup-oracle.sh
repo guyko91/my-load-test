@@ -96,7 +96,7 @@ BEGIN
     v_statuses := testuser.t_varchar_array_5('PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED');
     v_addresses := testuser.t_varchar_array_5('서울특별시 강남구 테헤란로 123', '서울특별시 송파구 올림픽로 456', '경기도 성남시 분당구 정자일로 789', '서울특별시 마포구 월드컵북로 321', '인천광역시 연수구 센트럴로 654');
 
-    FOR i IN 1..100000 LOOP
+    FOR i IN 1..10000 LOOP
         DECLARE
             v_quantity NUMBER;
             v_unit_price NUMBER(10,2);
