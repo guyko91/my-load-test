@@ -9,7 +9,7 @@ if [ -S /var/run/docker.sock ]; then
 fi
 
 # OpenTelemetry Agent Configuration
-export OTEL_RESOURCE_ATTRIBUTES="service.name=load-test,service.namespace=test,service.version=1.0.0,env=dev"
+export OTEL_RESOURCE_ATTRIBUTES="service.name=load-test,service.namespace=test,service.version=1.0.0,env=${ENV_NAME:-prod}"
 export OTEL_EXPORTER_OTLP_HEADERS="api-key=key,other-config-value=value"
 export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
 export OTEL_TRACES_EXPORTER="otlp"

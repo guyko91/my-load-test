@@ -46,7 +46,8 @@ services:
     ports:
       - "0.0.0.0:28080:28080"
     environment:
-      - SPRING_PROFILES_ACTIVE=real
+      - SPRING_PROFILES_ACTIVE=prod
+      - ENV_NAME=prod
       - JAVA_OPTS=-Xmx1g
       - K6_SCRIPTS_PATH_ON_HOST=${PWD}/k6
     volumes:
